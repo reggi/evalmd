@@ -1,5 +1,4 @@
 var _ = require('lodash')
-var path = require('path')
 var Entities = require('html-entities').AllHtmlEntities
 var cheerio = require('cheerio')
 var marked = require('marked')
@@ -21,36 +20,16 @@ var umd = require('acorn-umd')
  */
 
 /** evaluates a dir of md files or a single file */
-function testMarkdown (prividedPath) {
+function testMarkdown (files, output) {
   return fs.readFileAsync('./package.json')
   .then(JSON.parse)
-  .catch(function () {
-    return false
-  })
+  .catch(function () { return false })
   .then(function (pkg) {
-    return fs.lstatAsync(prividedPath)
-    .then(function (stats) {
-      if (stats.isFile()) {
-        return testMarkdown.files(prividedPath, pkg)
-      } else if (stats.isDirectory()) {
-        return fs.readdirAsync(prividedPath)
-        .then(function (files) {
-          return testMarkdown.prependPaths(files, prividedPath)
-        })
-        .then(function (dirPaths) {
-          return testMarkdown.files(dirPaths, pkg)
-        })
-      }
-    }).then(function () {
-      return process.exit()
-    })
+    return testMarkdown.files(files, pkg)
   })
-}
-
-/** prepends array items with dir path */
-testMarkdown.prependPaths = function (files, dir) {
-  return _.map(files, function (file) {
-    return path.join(dir, file)
+  .then(function (code) {
+    if (output) console.log(JSON.stringify(code))
+    return process.exit()
   })
 }
 
@@ -76,9 +55,8 @@ testMarkdown.files = function (files, pkg) {
           charsAdded += Math.abs(pkg.main.length - dep.source.value.length)
         }
       })
-      var parsed = path.parse(file)
-      parsed.format = path.format(parsed)
-      return _eval(code, parsed.format, {}, true)
+      _eval(code, file, {}, true)
+      return code
     })
   })
 }

@@ -14,15 +14,18 @@ function binDoc (def) {
   var intro = []
   if (def.name) intro.push(def.name)
   if (def.description) intro.push(def.description)
+  output.push('')
   output.push(intro.join(' - '))
+  output.push('')
   if (def.usage) output.push('Usage:')
   _.each(def.usage, function (item) {
-    output.push(util.format('  %s%s%s', item.field, binDoc.calculateSpaces(item.field, longestString), item.desc))
+    output.push(util.format('    %s%s%s', item.field, binDoc.calculateSpaces(item.field, longestString), item.desc))
   })
-  if (def.options) output.push('Options:')
+  if (def.options) output.push(''); output.push('Options:')
   _.each(def.options, function (item) {
-    output.push(util.format('  %s%s%s', item.field, binDoc.calculateSpaces(item.field, longestString), item.desc))
+    output.push(util.format('    %s%s%s', item.field, binDoc.calculateSpaces(item.field, longestString), item.desc))
   })
+  output.push('')
   return output.join('\n')
 }
 
@@ -68,6 +71,7 @@ binDoc.buildUsage = function (descriptions, name) {
 binDoc.prefixItems = function (arr, prefix) {
   return _.chain(arr)
   .map(function (item) {
+    if (item.substr(0, 1) === '-') return item
     return prefix + item
   })
   .value()
