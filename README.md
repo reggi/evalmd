@@ -10,6 +10,14 @@ var helloWorld = 'foo'
 assert.equal(helloWorld, 'foo')
 ```
 
+and
+
+```js
+var assert = require('assert')
+var helloWorld = ['foo', 'bar']
+assert.deepEqual(helloWorld, ['foo', 'bar'])
+```
+
 If you run this file using `test-markdown` it will exit with a status code of `0`, meaning no exceptions where thrown.
 
 This overall provides a different way of sharing and explaining code, because it's much more formal then a complicated test file.
