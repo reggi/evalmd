@@ -29,8 +29,18 @@ npm install evalmd -g
 evalmd ./readme.md
 ```
 
-* Todo:
-  * run [`standard`.lintText](https://github.com/feross/standard#standardlinttexttext-opts-callback) on the javascript within a md file
+## Current Module Definition
+
+If the command is ran within a node module with a `package.main` and a `package.name` then that reference will be replaced throughout your code. For instance the following passes.
+
+```javascript
+var evalmd = require('evalmd')
+assert.equal(typeof evalmd, 'function')
+```
+
+## Todo:
+
+* Add ability for custom linting support (<3 [`standard`](https://github.com/feross/standard#standardlinttexttext-opts-callback))
 
 <!-- START doctoc -->
 <!-- END doctoc -->
