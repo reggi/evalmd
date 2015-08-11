@@ -4,6 +4,7 @@
   "description": "Evaluates javascript code blocks from markdown files.",
   "main": "test-markdown.js",
   "bin": {
+    "evalmd": "./bin/test-markdown.js",
     "test-markdown": "bin/test-markdown.js"
   },
   "scripts": {
