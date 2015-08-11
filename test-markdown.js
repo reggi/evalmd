@@ -62,7 +62,7 @@ testMarkdown.files = function (files) {
 /** selecting the js code html blocks in the dom */
 testMarkdown.getJsFromHTML = function (mdContent) {
   var $ = cheerio.load(mdContent, {decodeEntities: false})
-  var code = $('code.lang-javascript')
+  var code = $('code.lang-javascript, code.lang-js')
   var codeHtml = []
   code.map(function () {
     codeHtml.push($(this).html())

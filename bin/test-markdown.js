@@ -8,7 +8,7 @@ var binDoc = require('../bin-doc')
 var markdownPath = (argv.path) ? argv.path : argv._.shift()
 
 var doc = {
-  'name': path.parse(__filename).name,
+  'name': pkg.name,
   'desc': pkg.description,
   'usage': {
     '<path>': 'File or directory of markdown files to test.'
