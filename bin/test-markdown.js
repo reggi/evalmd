@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 var minimist = require('minimist')
-var path = require('path')
 var argv = minimist(process.argv.slice(2))
 var testMarkdown = require('../test-markdown')
 var pkg = require('../package.json')
