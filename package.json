@@ -1,6 +1,6 @@
 {
   "name": "evalmd",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Evaluates javascript code blocks from markdown files.",
   "main": "test-markdown.js",
   "bin": {
