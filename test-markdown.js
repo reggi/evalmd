@@ -15,6 +15,7 @@ var entities = new Entities()
  * @package.keywords eval, evaulate, javascript, markdown, test
  * @package.preferGlobal
  * @package.scripts.test ./bin/test-markdown.js ./README.md
+ * @package.bin.evalmd ./bin/test-markdown.js
  */
 
 /** evaluates a dir of md files or a single file */
