@@ -20,6 +20,8 @@
   "preferglobal": true,
   "author": "Thomas Reggi <thomas@reggi.com>",
   "dependencies": {
+    "acorn": "^2.1.0",
+    "acorn-umd": "^0.4.0",
     "bluebird": "^2.9.34",
     "cheerio": "^0.19.0",
     "eval": "^0.1.0",
