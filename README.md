@@ -73,12 +73,19 @@ assert.equal(typeof evalmd, 'function')
 
 ## Preventing Eval
 
-If you don't want code to run you can add a comment to the firs line of the code block `// prevent eval`, this will prevent the code from executing.
+If you don't want code to run you can add a comment to the first line of the code block `// prevent eval`, this will prevent the code from executing.
 
 ```javascript
 // prevent eval
 assert.equal(true, false)
 ```
+
+You can also add `[](#prevent eval)` before the block so readers of the document won't see it.
+
+    [](#prevent eval)
+    ```javascript
+    assert.equal(true, false)
+    ```
 
 ## Prepend Flag
 

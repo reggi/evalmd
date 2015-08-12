@@ -86,9 +86,16 @@ testMarkdown.getJsFromHTML = function (mdContent) {
   var $ = cheerio.load(mdContent, {decodeEntities: false})
   var code = $('code.lang-javascript, code.lang-js')
   var codeHtml = []
-  code.map(function () {
+  code.map(function (i, elm) {
+    var $prevSibling = $(this).parents().prev()
+    var sibHtml = $prevSibling.html()
     var block = $(this).html()
-    if (!block.match(/^\/\/ prevent eval/)) codeHtml.push(block)
+    var preventOne = sibHtml === '<a href="#prevent eval"></a>'
+    var preventTwo = sibHtml === '<a href="#preventeval"></a>'
+    var preventThree = Boolean(block.match(/^\/\/ prevent eval/))
+    var preventFour = Boolean(block.match(/^\/\/ preventeval/))
+    var prevent = preventOne || preventTwo || preventThree || preventFour || false
+    if (!prevent) codeHtml.push(block)
   })
   return codeHtml.join('\n')
 }
