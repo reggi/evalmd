@@ -2,7 +2,7 @@
 
 [![Build Status](https://travis-ci.org/reggi/evalmd.svg?branch=master)](https://travis-ci.org/reggi/evalmd) [![js-standard-style](https://img.shields.io/badge/code%20style-standard-brightgreen.svg?style=flat)](https://github.com/feross/standard)
 
-Write javascript in your markdown & execute it. I wanted a way of making sure the javscript that I write in markdown was valid and worked, not only for my own sake, but to ensure the examples and code provided was valid for others to reliabley refer to.
+Write javascript in your markdown & execute it. I wanted a way of making sure the javscript that I write in markdown was valid and worked, not only for my own sake, but to ensure the examples and code provided was valid for others to reliably refer to.
 
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
@@ -21,7 +21,7 @@ Write javascript in your markdown & execute it. I wanted a way of making sure th
 
 ## Usage
 
-`evalmd` will scan a markdown file searching for a javascript code declaration, all of them are gathered then the string is thrown into [`eval`](https://github.com/pierrec/node-eval).
+`evalmd` will scan a markdown file searching for a javascript code declaration, all of them are gathered then the string sent to [`eval`](https://github.com/pierrec/node-eval).
 
     ```javascript
     ```
