@@ -19,13 +19,15 @@ var umd = require('acorn-umd')
  * @package.bin.evalmd ./bin/test-markdown.js
  */
 
+var path = require('path')
+
 /** evaluates a dir of md files or a single file */
-function testMarkdown (files, output) {
+function testMarkdown (files, output, dir) {
   return fs.readFileAsync('./package.json')
   .then(JSON.parse)
   .catch(function () { return false })
   .then(function (pkg) {
-    return testMarkdown.files(files, pkg)
+    return testMarkdown.files(files, pkg, dir)
   })
   .then(function (code) {
     if (output) console.log(JSON.stringify(code))
@@ -34,7 +36,7 @@ function testMarkdown (files, output) {
 }
 
 /** takes array of files, parses md, parses html, html entities, evals */
-testMarkdown.files = function (files, pkg) {
+testMarkdown.files = function (files, pkg, dir) {
   files = _.flatten([files])
   return Promise.map(files, function (file) {
     return fs.readFileAsync(file, 'utf8')
@@ -55,7 +57,25 @@ testMarkdown.files = function (files, pkg) {
           charsAdded += Math.abs(pkg.main.length - dep.source.value.length)
         }
       })
-      _eval(code, file, {}, true)
+      if (dir) {
+        var prepend = [
+          'var cwd = process.cwd()',
+          'process.chdir(path.join(__dirname, \'' + dir + '\'))',
+          'var fs = require(\'fs\')',
+          'var _eval = require(\'eval\')'
+        ].join('\n')
+        var append = [
+          'process.chdir(cwd)'
+        ].join('\n')
+        code = prepend
+          .concat('\n')
+          .concat(code)
+          .replace(/require/g, '_eval(fs.readFileSync(')
+          .concat('\n')
+          .concat(append)
+      }
+      console.log(code)
+      // _eval(code, file, {}, true)
       return code
     })
   })
@@ -72,7 +92,9 @@ testMarkdown.getJsFromHTML = function (mdContent) {
   var code = $('code.lang-javascript, code.lang-js')
   var codeHtml = []
   code.map(function () {
-    codeHtml.push($(this).html())
+    var block = $(this).html()
+    var preventEval = block.match(/^\/\/ prevent eval/)
+    if (!preventEval) codeHtml.push(block)
   })
   return codeHtml.join('\n')
 }
