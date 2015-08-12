@@ -73,19 +73,16 @@ evalmd ./docs/my-document.md --prepend='..'
 
 And you have `my-document.md` with the conents:
 
-```markdown
-```javascript
-var alpha = require('./alpha.js')
-```
-```
+    ```javascript
+    var alpha = require('./alpha.js')
+    ```
+
 
 The prepend command will transform this code to this before it executes it.
 
-```markdown
-```javascript
-var alpha = require('../alpha.js')
-```
-```
+    ```javascript
+    var alpha = require('../alpha.js')
+    ```
 
 > Note: it's a prepend `path.join()` string, and not a concatenated prepend.
 
