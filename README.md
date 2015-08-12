@@ -8,13 +8,30 @@ Write javascript in your markdown & execute it. I wanted a way of making sure th
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 
 
-- [Current Module Definition](#current-module-definition)
-- [Preventing Eval](#preventing-eval)
-- [Prepend Flag](#prepend-flag)
-- [Inspiration](#inspiration)
-- [Todo](#todo)
+- [Usage](#usage)
+- [Testing](#testing)
+- [Install](#install)
+  - [Current Module Definition](#current-module-definition)
+  - [Preventing Eval](#preventing-eval)
+  - [Prepend Flag](#prepend-flag)
+  - [Inspiration](#inspiration)
+  - [Todo](#todo)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
+
+# Usage
+
+`evalmd` will scan a markdown file searching for a javascript code declaration, all of them are gathered then the string is thrown into [`eval`](https://github.com/pierrec/node-eval).
+
+    ```javascript
+    ```
+
+or
+
+    ```js
+    ```
+
+# Testing
 
 Here is a bit of javascript that has an assertion at the end of it. The assertion will throw an error if the result of the `.equal` is invalid. This file is used as a test to see if `evalmd` is in working order.
 
@@ -35,6 +52,8 @@ assert.deepEqual(helloWorld, ['foo', 'bar'])
 If you run this file using `test-markdown` it will exit with a status code of `0`, meaning no exceptions where thrown.
 
 This overall provides a different way of sharing and explaining code, because it's much more formal then a complicated test file.
+
+# Install
 
 Try it yourself by executing the command:
 
@@ -76,7 +95,6 @@ And you have `my-document.md` with the conents:
     ```javascript
     var alpha = require('./alpha.js')
     ```
-
 
 The prepend command will transform this code to this before it executes it.
 
