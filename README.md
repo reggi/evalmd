@@ -2,7 +2,21 @@
 
 [![Build Status](https://travis-ci.org/reggi/evalmd.svg?branch=master)](https://travis-ci.org/reggi/evalmd) [![js-standard-style](https://img.shields.io/badge/code%20style-standard-brightgreen.svg?style=flat)](https://github.com/feross/standard)
 
-I wanted a way of writing unit tests in markdown. I've been playing around with things like [`yamadapc/jsdoctest`](https://github.com/yamadapc/jsdoctest) which parses `JSDoc` declarations looking for `@example` keywords in source code and creates a test based on them. I took this one step further and just wanted to be able two ensure that the javascript I write within markdown is valid.
+Write javascript in your markdown & execute it. I wanted a way of making sure the javscript that I write in markdown was valid and worked, not only for my own sake, but to ensure the examples and code provided was valid for others to reliabley refer to.
+
+<!-- START doctoc generated TOC please keep comment here to allow auto update -->
+<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
+
+
+- [Current Module Definition](#current-module-definition)
+- [Preventing Eval](#preventing-eval)
+- [Prepend Flag](#prepend-flag)
+- [Inspiration](#inspiration)
+- [Todo:](#todo)
+
+<!-- END doctoc generated TOC please keep comment here to allow auto update -->
+
+Here is a bit of javascript that has an assertion at the end of it. The assertion will throw an error if the result of the `.equal` is invalid. This file is used as a test to see if `evalmd` is in working order.
 
 ```javascript
 var assert = require('assert')
@@ -10,7 +24,7 @@ var helloWorld = 'foo'
 assert.equal(helloWorld, 'foo')
 ```
 
-and
+Here's another one:
 
 ```js
 var assert = require('assert')
@@ -47,9 +61,38 @@ If you don't want code to run you can add a comment to the firs line of the code
 assert.equal(true, false)
 ```
 
+## Prepend Flag
+
+If you want to run code from `docs`, and your javscript files are in the root directory, you can use the `--prepend` flag to prepend every local module reference with the value.
+
+Let's say you run the command:
+
+```bash
+evalmd ./docs/my-document.md --prepend='..'
+```
+
+And you have `my-document.md` with the conents:
+
+```markdown
+```javascript
+var alpha = require('./alpha.js')
+```
+```
+
+The prepend command will transform this code to this before it executes it.
+
+```markdown
+```javascript
+var alpha = require('../alpha.js')
+```
+```
+
+> Note: it's a prepend `path.join()` string, and not a concatenated prepend.
+
+## Inspiration
+
+I wanted a way of writing unit tests in markdown. I've been playing around with things like [`yamadapc/jsdoctest`](https://github.com/yamadapc/jsdoctest) which parses `JSDoc` declarations looking for `@example` keywords in source code and creates a test based on them.
+
 ## Todo:
 
 * Add ability for custom linting support (<3 [`standard`](https://github.com/feross/standard#standardlinttexttext-opts-callback))
-
-<!-- START doctoc -->
-<!-- END doctoc -->
