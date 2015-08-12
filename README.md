@@ -38,6 +38,15 @@ var evalmd = require('evalmd')
 assert.equal(typeof evalmd, 'function')
 ```
 
+## Preventing Eval
+
+If you don't want code to run you can add a comment to the firs line of the code block `// prevent eval`, this will prevent the code from executing.
+
+```javascript
+// prevent eval
+assert.equal(true, false)
+```
+
 ## Todo:
 
 * Add ability for custom linting support (<3 [`standard`](https://github.com/feross/standard#standardlinttexttext-opts-callback))
