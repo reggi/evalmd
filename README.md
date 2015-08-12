@@ -12,7 +12,7 @@ Write javascript in your markdown & execute it. I wanted a way of making sure th
 - [Preventing Eval](#preventing-eval)
 - [Prepend Flag](#prepend-flag)
 - [Inspiration](#inspiration)
-- [Todo:](#todo)
+- [Todo](#todo)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
@@ -93,6 +93,6 @@ var alpha = require('../alpha.js')
 
 I wanted a way of writing unit tests in markdown. I've been playing around with things like [`yamadapc/jsdoctest`](https://github.com/yamadapc/jsdoctest) which parses `JSDoc` declarations looking for `@example` keywords in source code and creates a test based on them.
 
-## Todo:
+## Todo
 
 * Add ability for custom linting support (<3 [`standard`](https://github.com/feross/standard#standardlinttexttext-opts-callback))
