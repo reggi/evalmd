@@ -1,3 +1,4 @@
+var path = require('path')
 var _ = require('lodash')
 var Entities = require('html-entities').AllHtmlEntities
 var cheerio = require('cheerio')
@@ -19,15 +20,13 @@ var umd = require('acorn-umd')
  * @package.bin.evalmd ./bin/test-markdown.js
  */
 
-var path = require('path')
-
 /** evaluates a dir of md files or a single file */
-function testMarkdown (files, output, dir) {
+function testMarkdown (files, output, prepend) {
   return fs.readFileAsync('./package.json')
   .then(JSON.parse)
   .catch(function () { return false })
   .then(function (pkg) {
-    return testMarkdown.files(files, pkg, dir)
+    return testMarkdown.files(files, pkg, prepend)
   })
   .then(function (code) {
     if (output) console.log(JSON.stringify(code))
@@ -36,7 +35,7 @@ function testMarkdown (files, output, dir) {
 }
 
 /** takes array of files, parses md, parses html, html entities, evals */
-testMarkdown.files = function (files, pkg, dir) {
+testMarkdown.files = function (files, pkg, prepend) {
   files = _.flatten([files])
   return Promise.map(files, function (file) {
     return fs.readFileAsync(file, 'utf8')
@@ -49,6 +48,7 @@ testMarkdown.files = function (files, pkg, dir) {
         es6: true, amd: true, cjs: true
       })
       var charsAdded = 0
+      // change package if required
       _.each(deps, function (dep) {
         if (pkg && pkg.main && dep.source.value === pkg.name) {
           var start = charsAdded + dep.source.start + 1
@@ -57,25 +57,20 @@ testMarkdown.files = function (files, pkg, dir) {
           charsAdded += Math.abs(pkg.main.length - dep.source.value.length)
         }
       })
-      if (dir) {
-        var prepend = [
-          'var cwd = process.cwd()',
-          'process.chdir(path.join(__dirname, \'' + dir + '\'))',
-          'var fs = require(\'fs\')',
-          'var _eval = require(\'eval\')'
-        ].join('\n')
-        var append = [
-          'process.chdir(cwd)'
-        ].join('\n')
-        code = prepend
-          .concat('\n')
-          .concat(code)
-          .replace(/require/g, '_eval(fs.readFileSync(')
-          .concat('\n')
-          .concat(append)
+      // prefix local modules with dir
+      if (prepend) {
+        var localRegex = /^.\.\/|^.\/|^\//
+        _.each(deps, function (dep) {
+          if (dep.source.value.match(localRegex)) {
+            var start = charsAdded + dep.source.start + 1
+            var end = charsAdded + dep.source.end - 1
+            var newRef = path.join(prepend, dep.source.value)
+            code = testMarkdown.replacePosition(code, start, end, newRef)
+            charsAdded += Math.abs(newRef.length - dep.source.value.length)
+          }
+        })
       }
-      console.log(code)
-      // _eval(code, file, {}, true)
+      _eval(code, file, {}, true)
       return code
     })
   })
@@ -93,8 +88,7 @@ testMarkdown.getJsFromHTML = function (mdContent) {
   var codeHtml = []
   code.map(function () {
     var block = $(this).html()
-    var preventEval = block.match(/^\/\/ prevent eval/)
-    if (!preventEval) codeHtml.push(block)
+    if (!block.match(/^\/\/ prevent eval/)) codeHtml.push(block)
   })
   return codeHtml.join('\n')
 }
