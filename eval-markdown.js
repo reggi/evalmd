@@ -53,7 +53,7 @@ function evalMarkdown (file$, prependPath, uniformPath, nonstop, blockScope, sil
         mdReference: function (data) {
           return data.mdContent
           .replace(/```\n/g, '\n// TERMINATEDCODEBLOCK\n```\n') // https://github.com/chjj/marked/issues/645
-          .replace(/ {4}/g, '\t') // https://github.com/chjj/marked/issues/644
+          // .replace(/ {4}/g, '\t') // https://github.com/chjj/marked/issues/644
         },
         html: function (data) {
           return markedAsync(data.mdReference)
@@ -63,7 +63,7 @@ function evalMarkdown (file$, prependPath, uniformPath, nonstop, blockScope, sil
           var blocks = evalMarkdown.getBlocks(data.html, data.mdReference, pkg)
           blocks = _.map(blocks, function (block, id) {
             block.id = id + 1
-            block = evalMarkdown.assembleBlock(block, blockCounter, data.mdContent, data.mdContentLines, includePrevented)
+            block = evalMarkdown.assembleBlock(block, blockCounter, data.mdContent, data.mdContentLines, data.mdReference, includePrevented)
             var temp = path.join(os.tmpdir(), 'evalmd')
             block.assignFileHashPath = (block.assignFileHash) ? path.join(temp, block.assignFileHash) : undefined
             if (block.assignFileHashPath) blockScope = true
@@ -120,9 +120,10 @@ function evalMarkdown (file$, prependPath, uniformPath, nonstop, blockScope, sil
     }, {concurrency: 1})
   }).then(function (dataSets) {
     evalMarkdown.logInfo('ok')
+    var exitCode = evalMarkdown.exitCode(dataSets)
     var values = {
       dataSets: dataSets,
-      exitCode: evalMarkdown.exitCode(dataSets),
+      exitCode: exitCode,
       log: evalMarkdown.stderr
     }
     return values
@@ -133,10 +134,8 @@ function evalMarkdown (file$, prependPath, uniformPath, nonstop, blockScope, sil
 evalMarkdown.exitCode = function (dataSets) {
   var errors = _.chain(dataSets).map(function (data) {
     return _.map(data.evaluations, 'error')
-  }).without(false).value()
-  var error = _.first(errors)
-  if (error) return 1
-  return 0
+  }).flatten().without(false).value()
+  return (errors.length) ? 1 : 0
 }
 
 /** a wrapper for writing to stderr and storing messages */
@@ -213,7 +212,7 @@ evalMarkdown.getLineNumber = function (body, charOrString) {
 }
 
 /** collect all the information about a code block */
-evalMarkdown.assembleBlock = function (block, blockCounter, mdContent, mdContentLines, includePrevented) {
+evalMarkdown.assembleBlock = function (block, blockCounter, mdContent, mdContentLines, mdReference, includePrevented) {
   block.prevent = [
     Boolean(block.prevSiblingHref && block.prevSiblingHref.match(/prevent eval/i)),
     Boolean(block.prevSiblingHref && block.prevSiblingHref.match(/preventeval/i)),
@@ -249,17 +248,22 @@ evalMarkdown.assembleBlock = function (block, blockCounter, mdContent, mdContent
   }
   block.codeMatchable = S.unescapeHTML(block.code)
   block.codeMatchable = block.codeMatchable
-  .replace(/ {4}/g, '\t')
+  // .replace(/ {4}/g, '\t')
   .replace(/\n\/\/ TERMINATEDCODEBLOCK\n$/, '')
   .replace(/\r\n/, '\n')
   .replace(/\r/, '\n')
   block.codeEvalable = S.unescapeHTML(block.code)
   .replace(/\n\/\/ TERMINATEDCODEBLOCK\n$/, '')
+
+  mdReference = mdReference
+  .replace(/\n\/\/ TERMINATEDCODEBLOCK\n/g, '')
+
   block.codeEvalableLines = S.lines(block.codeEvalable)
   block.blockSyntax = block.blockSyntaxTypes[block.parentClass]
   block.codeMatchable = [block.blockSyntax, '\n', block.codeMatchable, '```'].join('')
   block.hash = evalMarkdown.hashBlock(block.codeMatchable)
-  block.multiIndexOf = evalMarkdown.multiIndexOf(mdContent, block.codeMatchable)
+  block.multiIndexOf = evalMarkdown.multiIndexOf(mdReference, block.codeMatchable)
+
   if (typeof blockCounter[block.hash] === 'undefined') {
     blockCounter[block.hash] = 0
   } else {
@@ -269,6 +273,7 @@ evalMarkdown.assembleBlock = function (block, blockCounter, mdContent, mdContent
   block.startLine = evalMarkdown.getLineNumber(mdContent, block.startChar)
   block.endLine = block.startLine + block.codeEvalableLines.length
   block.pullCode = _.slice(mdContentLines, block.startLine, block.endLine)
+
   block.pullCodeLastLine = _.last(block.pullCode)
   if (block.pullCodeLastLine.match(/```$/)) {
     block.pullCode.pop()
@@ -436,6 +441,7 @@ evalMarkdown.parseLineChar = function (s) {
 
 /** acorn error */
 evalMarkdown.acornError = function (e, fileName, blocks, uniformPath) {
+  if (!e.stack) return e
   var stack = e.stack
   stack = evalMarkdown.stackParts(stack)
   var lineChar = [e.loc.line, ':', e.loc.column].join('')
@@ -448,10 +454,12 @@ evalMarkdown.acornError = function (e, fileName, blocks, uniformPath) {
 
 /** eval error */
 evalMarkdown.evalError = function (e, fileName, blocks, uniformPath) {
+  if (!e.stack) return e
   var baseName = path.basename(fileName)
   var resolvedPath = (uniformPath) ? fileName : path.resolve(fileName)
   var stack = e.stack
   stack = evalMarkdown.stackParts(stack)
+  var origStack = stack.lines
   stack.lines = _.chain(stack.lines)
   .filter(function (line) {
     return line.match(baseName)
@@ -477,7 +485,13 @@ evalMarkdown.evalError = function (e, fileName, blocks, uniformPath) {
       stack.frame[0] = [resolvedPath, '>', foundBlock.assignFile, ':', lineCharObj.lineChar, ' {block ', errorBlock.id, '}'].join('')
     }
   }
-  stack.lines = [_.first(stack.lines)]
+
+  if (stack.lines.length) {
+    stack.lines = [_.first(stack.lines)]
+  } else {
+    stack.lines = origStack
+  }
+
   return evalMarkdown.stackJoin(stack)
 }
 

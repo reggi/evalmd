@@ -62,4 +62,10 @@ evalMarkdown(
   argv.output, // output
   argv.delimeter, // stdoutDelimeter
   argv.package // packagePath
-)
+).then(function (report) {
+  process.exit(report.exitCode)
+})
+.catch(function (e) {
+  evalMarkdown.logError(e)
+  process.exit(1)
+})
