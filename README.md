@@ -31,6 +31,36 @@ or
     ```js
     ```
 
+## Options
+
+```
+evalmd - Evaluate the javascript in markdown files
+
+Options:
+  -i, --include    Includes prevented blocks  [default: false]
+  -P, --prevent    Prevent code from being evaluated  [default: false]
+  -b, --block      Change the scope to block level  [default: false]
+  -o, --output     Output js  [default: false]
+  -n, --nonstop    Runs all files regardless if error  [default: false]
+  -s, --silent     Silence evalmd logging  [default: false]
+  -u, --uniform    Does not use absolute urls when error logging  [default: false]
+  -d, --delimeter  Stdout delimeter  [default: false]
+  -h, --help       Show help  [boolean]
+  --path           Prefix local module with path  [default: "./"]
+  --package        Th path of a package.json  [default: "./package.json"]
+  --version        Show version number  [boolean]
+
+Examples:
+  evalmd <file(s)>        Evaluate file(s)
+  evalmd <file(s)> -n     Evaluate file(s) uninterrupted
+  evalmd <file(s)> -b     Evaluate block(s)
+  evalmd <file(s)> -bn    Evaluate block(s) uninterrupted
+  evalmd <file(s)> -Po    Outputs js file(s)
+  evalmd <file(s)> -Pio   Outputs js file(s) with all block(s) (for linting)
+  evalmd <file(s)> -Pob   Outputs block(s)
+  evalmd <file(s)> -Piob  Outputs all blocks(s) (for linting)
+```
+
 ## Testing
 
 Here is a bit of javascript that has an assertion at the end of it. The assertion will throw an error if the result of the `.equal` is invalid. This file is used as a test to see if `evalmd` is in working order.
@@ -71,21 +101,48 @@ var evalmd = require('evalmd')
 assert.equal(typeof evalmd, 'function')
 ```
 
-## Preventing Eval
+## Prevent Eval Declaration
 
-If you don't want code to run you can add a comment to the first line of the code block `// prevent eval`, this will prevent the code from executing.
+The `preventEval` declaration allows you to prevent a code block from being evaluated.  There are two different ways of declaring a code block. One is to use an `anchor`. Here's an example:
 
-```javascript
-// prevent eval
-assert.equal(true, false)
-```
-
-You can also add `[](#prevent eval)` before the block so readers of the document won't see it.
-
-    [](#prevent eval)
-    ```javascript
-    assert.equal(true, false)
+    [](#preventEval)
+    ```js
+    module.exports = 'alpha-path'
     ```
+
+When adding a `preventEval` declaration in this way the name of the file is the `text` content of the anchor. Another way to declare a block as a file is using a comment. Here's an example:
+
+    ```js
+    // preventEval
+    module.exports = 'alpha-path'
+    ```
+
+When the first line of a code block is a comment with the word `preventEval` in front the string after will be interpreted as the file.
+
+> Note. The match patterns for `prevent eval` and `preventEval` are case-insensitive. So `pReVenTeVaL` works just as well.
+
+# File Eval Declaration
+
+The `fileEval` declaration allows you to define a code block as a file. There are two different ways of declaring a code block. One is to use an `anchor` tag with the `href` set to `#fileEval`. Here's an example:
+
+    This is the file [./alpha.js](#fileEval).
+
+    ```js
+    module.exports = 'alpha-path'
+    ```
+
+When adding a `fileEval` declaration in this way the name of the file is the `text` content of the anchor. Another way to declare a block as a file is using a comment. Here's an example:
+
+    ```js
+    // fileEval ./alpha.js
+    module.exports = 'alpha-path'
+    ```
+
+When the first line of a code block is a comment with the word `fileEval` in front the string after will be interpreted as the file.
+
+> Note. If any of the code blocks in a file contain a `fileEval` declaration then the entire file will be run as `blockScope`.
+
+> Note. The match patterns for `file eval` and `fileEval` are case-insensitive. So `fILeEvAl` works just as well.
 
 ## Prepend Flag
 
