@@ -1,9 +1,9 @@
 var _ = require('lodash')
 var Promise = require('bluebird')
 
-function promisePropsRipple (start, props) {
+function promiseRipple (start, props) {
   props = (props) ? props : start
-  start = (props) ? {} : start
+  start = (props) ? start : {}
   props = _.mapValues(props, function (prop, key) {
     prop.key = key
     return prop
@@ -11,8 +11,12 @@ function promisePropsRipple (start, props) {
   return Promise.reduce(_.values(props), function (result, action) {
     if (typeof action !== 'function') throw new Error('property values must be functions')
     return Promise.resolve(action(start)).then(function (value) {
-      start[action.key] = value
-      return value
+      if (start === value) {
+        return value
+      } else {
+        start[action.key] = value
+        return value
+      }
     })
   }, null)
   .then(function () {
@@ -20,21 +24,23 @@ function promisePropsRipple (start, props) {
   })
 }
 
-module.exports = promisePropsRipple
+module.exports = promiseRipple
 
-// promisePropsRipple({cookie: 'sugar'}, {
+// promiseRipple({zero: 'zero'}, {
 //   'alpha': function (data) {
-//     return gamma(data.cookie)
+//     return Promise.resolve(data.zero + ' alpha') // async -> 'zero alpha'
 //   },
 //   'beta': function (data) {
-//     return gamma(data.alpha)
+//     data.foo = 'foo'
+//     data.bar = 'bar'
+//     return data
 //   },
 //   'gamma': function (data) {
-//     return gamma(data.beta)
+//     return Promise.resolve(data.zero + ' gamma') // async -> 'zero gamma'
 //   },
 //   'delta': function (data) {
-//     return gamma(data.cookie, data.gamma)
+//     return Promise.resolve(data.zero + data.alpha + ' delta') // async -> 'zerozero alpha delta'
 //   },
-// }).then(function (a){
-//   console.log(a)
+// }).then(function (results) {
+//   console.log(results)
 // })

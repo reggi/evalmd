@@ -23,6 +23,7 @@ var argv = yargs
   .describe('b', 'Change the scope to block level')
   .default('o', false)
   .alias('o', 'output')
+  .choices('o', [false, true, 'preserve', 'concat', 'preserveAlter', 'concatAlter'])
   .describe('o', 'Output js')
   .default('n', false)
   .alias('n', 'nonstop')
@@ -35,7 +36,9 @@ var argv = yargs
   .describe('u', 'Does not use absolute urls when error logging')
   .default('d', false)
   .alias('d', 'delimeter')
-  .describe('d', 'Stdout delimeter')
+  .default('D', false)
+  .alias('D', 'debug')
+  .describe('D', 'Debug Output')
   .help('h')
   .alias('h', 'help')
   .describe('path', 'Prefix local module with path')
@@ -52,20 +55,19 @@ var files = argv._
 
 evalMarkdown(
   files,
-  argv.path, // prependPath
-  argv.uniform, // uniformPath
-  argv.nonstop, // nonstop
-  argv.block, // blockScope
-  argv.silent, // silence
-  argv.prevent, // preventEval
-  argv.include, // includePrevented
-  argv.output, // output
-  argv.delimeter, // stdoutDelimeter
-  argv.package // packagePath
+  argv.package,
+  argv.path,
+  argv.block,
+  argv.nonstop,
+  argv.prevent,
+  argv.include,
+  argv.silent,
+  argv.debug,
+  argv.output,
+  argv.delimeter
 ).then(function (report) {
   process.exit(report.exitCode)
 })
 .catch(function (e) {
-  evalMarkdown.logError(e)
   process.exit(1)
 })
