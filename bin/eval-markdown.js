@@ -53,21 +53,27 @@ var argv = yargs
 
 var files = argv._
 
-evalMarkdown(
-  files,
-  argv.package,
-  argv.path,
-  argv.block,
-  argv.nonstop,
-  argv.prevent,
-  argv.include,
-  argv.silent,
-  argv.debug,
-  argv.output,
-  argv.delimeter
-).then(function (report) {
-  process.exit(report.exitCode)
-})
-.catch(function (e) {
-  process.exit(1)
-})
+if (files.length) {
+
+  evalMarkdown(
+    files,
+    argv.package,
+    argv.path,
+    argv.block,
+    argv.nonstop,
+    argv.prevent,
+    argv.include,
+    argv.silent,
+    argv.debug,
+    argv.output,
+    argv.delimeter
+  ).then(function (report) {
+    process.exit(report.exitCode)
+  })
+  .catch(function (e) {
+    process.exit(1)
+  })
+
+} else {
+  console.log(yargs.help())
+}

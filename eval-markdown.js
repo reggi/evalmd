@@ -38,12 +38,10 @@ function main (filePath$, packagePath, prepend, blockScope, nonstop, preventEval
   .then(function (pkg) {
     return Promise.map(filePaths, function (filePath) {
       return assemble(filePath, pkg, prepend, blockScope, nonstop, preventEval, includePrevented, output, delimeter)
-      .catch(function (e) {
-        return catchNonstopFn(e, nonstop, false, false)
-      })
     })
   })
   .then(function (mdResults) {
+    // console.log(mdResults)
     logInfo('ok')
     var exitCode = getExitCode(mdResults)
     logDebug('exit code', exitCode)
@@ -51,6 +49,16 @@ function main (filePath$, packagePath, prepend, blockScope, nonstop, preventEval
       dataSets: mdResults,
       exitCode: exitCode,
       log: logStore
+    }
+  })
+  .catch(function (error) {
+    logErr(error)
+    var exitCode = 1
+    logDebug('exit code', exitCode)
+    return {
+      dataSets: null,
+      exitCode: 1,
+      log: null
     }
   })
 }
@@ -348,34 +356,6 @@ var buildEvalable = main.buildEvalable = function (node, nodes, markdownLinesLen
   return build
 }
 
-var catchNonstopFn = main.catchNonstopFn = function (e, nonstop, stackWrapper, toThrow) {
-  var theE = (function () {
-    if (stackWrapper) {
-      return stackWrapper(e)
-    } else {
-      if (e.stack) {
-        return e.stack
-      } else {
-        return e
-      }
-    }
-  }())
-  if (!nonstop && toThrow) {
-    throw errMsgs(theE)
-  } else {
-    logErr(theE)
-    return e
-  }
-}
-
-var catchNonstop = main.catchNonstop = function (fn, nonstop, stackWrapper) {
-  try {
-    return fn()
-  } catch (e) {
-    return catchNonstopFn(e, nonstop, stackWrapper, true)
-  }
-}
-
 var stackSplit = main.stackSplit = function (stack) {
   var stackLines = stack.split('\n')
   var buckets = {
@@ -565,7 +545,6 @@ var evalError = main.evalError = function (filePath, nodes) {
     if (!e.stack) return e
     var stack = stackSplit(e.stack)
     var absFilePath = path.resolve(filePath)
-
     stack.lines = cleanLines(stack.lines, nodes, absFilePath, false)
     stack.frame = cleanLines(stack.frame, nodes, absFilePath, true)
     stack.frame.shift()
@@ -588,6 +567,22 @@ var evalFileAsync = main.evalFileAsync = function (file) {
   })
 }
 
+var getCleanErr = main.getCleanErr = function (error, stackWrapper) {
+  if (stackWrapper) return stackWrapper(error)
+  if (error.stack) return error.stack
+  return error
+}
+
+var nonstopErr = main.nonstopErr = function (error, stackWrapper, nonstop) {
+  var cleanErr = getCleanErr(error, stackWrapper)
+  if (nonstop) {
+    logErr(cleanErr)
+    return error
+  } else {
+    throw cleanErr
+  }
+}
+
 var evaluate = main.evaluate = function (node, nodes, markdownLinesLength, pkg, prepend, nonstop, filePath) {
   return promiseRipple(node, {
     notice: function (node) {
@@ -597,9 +592,11 @@ var evaluate = main.evaluate = function (node, nodes, markdownLinesLength, pkg, 
     },
     evalCode: function (node) {
       var stackWrapper = acornError(nodes, filePath)
-      return catchNonstop(function () {
+      try {
         return buildEvalable(node, nodes, markdownLinesLength, pkg, prepend)
-      }, nonstop, stackWrapper)
+      } catch (error) {
+        return nonstopErr(error, stackWrapper, nonstop)
+      }
     },
     fileName: function (node) {
       node.fileEvalHash = (node.fileEval) ? getHash(node.fileEval) : getHash(filePath + node.id)
@@ -621,17 +618,9 @@ var evaluate = main.evaluate = function (node, nodes, markdownLinesLength, pkg, 
       if (!node.fileCreated) return false
       var stackWrapper = evalError(filePath, nodes)
       return evalFileAsync(node.fileEvalHashPath)
-        .catch(function (e) {
-          return fs.unlinkAsync(node.fileEvalHashPath)
-          .then(function () {
-            return catchNonstopFn(e, nonstop, stackWrapper, true)
-          })
+        .catch(function (error) {
+          return nonstopErr(error, stackWrapper, nonstop)
         })
-      // if (!node.evalCode.preserveAlter || node.evalCode && node.evalCode.preserveAlter instanceof Error) return false
-      // return _eval('require("' + node.fileEvalHashPath + '")', filePath, {}, true)
-      // var stackWrapper = evalError(filePath, nodes)
-      // return catchNonstop(function () {
-      // }, nonstop, stackWrapper)
     },
     fileRemove: function (node) {
       if (!node.fileCreated) return false
@@ -662,11 +651,14 @@ var outputCode = main.outputCode = function (node, nodes, markdownLinesLength, p
     },
     evalCode: function (node) {
       var stackWrapper = acornError(nodes, filePath)
-      return catchNonstop(function () {
+      try {
         return buildEvalable(node, nodes, markdownLinesLength, pkg, prepend)
-      }, nonstop, stackWrapper)
+      } catch (error) {
+        return nonstopErr(error, stackWrapper, nonstop)
+      }
     },
     output: function (node) {
+      if (node.evalCode instanceof Error) return false
       if (output === true) output = 'preserve'
       process.stdout.write(node.evalCode[output])
       delimeter = (delimeter === true) ? '//EVALMD-STDOUT-FILE-DELIMETER' : delimeter

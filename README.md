@@ -40,15 +40,16 @@ Options:
   -i, --include    Includes prevented blocks  [default: false]
   -P, --prevent    Prevent code from being evaluated  [default: false]
   -b, --block      Change the scope to block level  [default: false]
-  -o, --output     Output js  [default: false]
+  -o, --output     Output js  [choices: false, true, "preserve", "concat", "preserveAlter", "concatAlter"] [default: false]
   -n, --nonstop    Runs all files regardless if error  [default: false]
-  -s, --silent     Silence evalmd logging  [default: false]
+  -s, --silent     Silence `evalmd` logging  [default: false]
   -u, --uniform    Does not use absolute urls when error logging  [default: false]
-  -d, --delimeter  Stdout delimeter  [default: false]
+  -D, --debug      Debug Output  [default: false]
   -h, --help       Show help  [boolean]
   --path           Prefix local module with path  [default: "./"]
   --package        Th path of a package.json  [default: "./package.json"]
   --version        Show version number  [boolean]
+  -d, --delimeter  [default: false]
 
 Examples:
   evalmd <file(s)>        Evaluate file(s)
