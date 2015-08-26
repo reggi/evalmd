@@ -249,12 +249,9 @@ var regExpEscape = main.regExpEscape = function (s) {
 
 var alterAssignedModule = main.alterAssignedModule = function (code, prepend, pkg) {
   if (!pkg) return code
-  if (!pkg.main) return code
-  // if (!pkg.name) return code
   prepend = (prepend) ? prepend : './'
   var deps = getDeps(code)
   if (!deps.length) return code
-  // var main = pkg.main
   var name = pkg.name
   var chars = 0
   name = regExpEscape(name)
