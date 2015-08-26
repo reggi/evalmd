@@ -42,8 +42,8 @@ function main (filePath$, packagePath, prepend, blockScope, nonstop, preventEval
   })
   .then(function (mdResults) {
     // console.log(mdResults)
-    logInfo('ok')
     var exitCode = getExitCode(mdResults)
+    if (exitCode === 0) logInfo('ok')
     logDebug('exit code', exitCode)
     return {
       dataSets: mdResults,
@@ -490,7 +490,7 @@ var parseLineChar = main.parseLineChar = function (s) {
   return false
 }
 
-var cleanLines = main.cleanLines = function (incLines, nodes, absFilePath, frame) {
+var getCleanLines = main.getCleanLines = function (incLines, nodes, absFilePath, frame) {
   var lines = _.map(incLines, function (line) {
     var lineChar = parseLineChar(line)
     var matchNodes = _.find(nodes, function (node) {
@@ -545,8 +545,9 @@ var evalError = main.evalError = function (filePath, nodes) {
     if (!e.stack) return e
     var stack = stackSplit(e.stack)
     var absFilePath = path.resolve(filePath)
-    stack.lines = cleanLines(stack.lines, nodes, absFilePath, false)
-    stack.frame = cleanLines(stack.frame, nodes, absFilePath, true)
+    var cleanLines = getCleanLines(stack.lines, nodes, absFilePath, false)
+    if (cleanLines.length !== 0) stack.lines = cleanLines
+    stack.frame = getCleanLines(stack.frame, nodes, absFilePath, true)
     stack.frame.shift()
     if (_.last(stack.frame) === '') stack.frame.pop()
     return stackJoin(stack)
