@@ -243,8 +243,8 @@ var replacePosition = main.replacePosition = function (str, start, end, value) {
   return str.substr(0, start) + value + str.substr(end)
 }
 
-var regExpEscape = main.regExpEscape = function(s) {
-    return s.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+var regExpEscape = main.regExpEscape = function (s) {
+  return s.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')
 }
 
 var alterAssignedModule = main.alterAssignedModule = function (code, prepend, pkg) {
@@ -395,13 +395,6 @@ var errMsg = main.errMsg = function () {
     chalk.white('evalmd'),
     chalk.red('ERR!')
   ].concat(args).join(' ')
-}
-
-var errMsgs = main.errMsgs = function (err) {
-  var lines = cleanStack(err)
-  return _.each(lines, function (line) {
-    return errMsg(line) + '\n'
-  })
 }
 
 var infoMsg = main.infoMsg = function () {
