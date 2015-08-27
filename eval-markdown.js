@@ -225,7 +225,7 @@ var buildConcat = main.buildConcat = function (node$, lines) {
 }
 
 var getDeps = main.getDeps = function (code) {
-  var ast = acorn.parse(code, {ecmaVersion: 6})
+  var ast = acorn.parse(code, {sourceType: 'module', ecmaVersion: 6})
   var deps = umd(ast, {
     es6: true, amd: true, cjs: true
   })

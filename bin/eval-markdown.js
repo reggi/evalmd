@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+var path = require('path')
 var yargs = require('yargs')
 var fs = require('fs')
 var evalMarkdown = require('../eval-markdown')
@@ -46,7 +47,8 @@ var argv = yargs
   .describe('package', 'Th path of a package.json')
   .default('package', './package.json')
   .version(function () {
-    return fs.readFileSync('../package.json').version
+    var pkg = fs.readFileSync(path.join(__dirname, '../package.json'), 'utf8')
+    return JSON.parse(pkg).version
   })
   .wrap(null)
   .argv
