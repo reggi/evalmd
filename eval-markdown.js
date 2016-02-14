@@ -1,4 +1,4 @@
-var os = require('os')
+var osTmpDir = require('os-tmpdir')
 var crypto = require('crypto')
 var path = require('path')
 var Promise = require('bluebird')
@@ -13,7 +13,7 @@ var promiseRipple = require('./promise-ripple')
 var promiseSeries = require('./promise-series')
 // var _eval = require('eval')
 var chalk = require('chalk')
-var temp = path.join(os.tmpdir(), 'evalmd')
+var temp = path.join(osTmpDir(), 'evalmd')
 
 var log = false
 var DEBUG = false
