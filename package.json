@@ -1,6 +1,6 @@
 {
   "name": "evalmd",
-  "version": "0.0.16",
+  "version": "0.0.17",
   "description": "Evaluates javascript code blocks from markdown files.",
   "main": "eval-markdown.js",
   "license": "MIT",
