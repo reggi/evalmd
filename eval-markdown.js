@@ -322,7 +322,7 @@ var alterNpmModules = main.alterNpmModules = function (code, nodes, prepend) {
   var nonNpm = /\/|\\/
   var chars = 0
   _.each(deps, function (dep) {
-    var start, end, replacement;
+    var start, end, replacement
     if (dep.source.raw && dep.source.raw.match(nonNpm) && !_.contains(natives, dep.source.value)) {
       start = chars + dep.source.start
       end = chars + dep.source.end
@@ -554,7 +554,7 @@ var evalError = main.evalError = function (filePath, nodes) {
 
 var evalFileAsync = main.evalFileAsync = function (file) {
   return new Promise(function (resolve, reject) {
-    var command = [process.execPath, file].map(str => '"' + str + '"').join(' ');
+    var command = [process.execPath, file].map(str => '"' + str + '"').join(' ')
     return child_process.exec(command, function (error, stdout, stderr) {
       if (stdout) process.stdout.write(stdout)
       if (error) return reject(error)
