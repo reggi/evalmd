@@ -1,3 +1,8 @@
+src
+test-readmes
+.travis.yml
+LICENCE
+tsconfig.json
 npm-debug.log
 node_modules
 .DS_Store

@@ -1,8 +1,8 @@
 {
   "name": "evalmd",
-  "version": "0.0.18",
+  "version": "0.0.19",
   "description": "Evaluates javascript code blocks from markdown files.",
-  "main": "eval-markdown.js",
+  "main": "dist/script.js",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -21,10 +21,11 @@
   "preferglobal": true,
   "author": "Thomas Reggi <thomas@reggi.com>",
   "dependencies": {
-    "acorn": "^2.1.0",
-    "acorn-umd": "^0.4.0",
+    "acorn": "^7.0.0",
     "bluebird": "^2.9.34",
     "chalk": "^1.1.0",
+    "es-lookup-scope": "^1.0.1",
+    "estraverse": "^4.3.0",
     "fs-extra": "reggi/node-fs-extra#enhanced",
     "lodash": "^4.17.15",
     "markdown-it": "markdown-it/markdown-it#255d62d39122694872ddce840e2141379ac3deca",
@@ -32,9 +33,20 @@
     "underscore.string": "^3.1.1",
     "yargs": "^3.19.0"
   },
+  "devDependencies": {
+    "@types/node": "^12.7.3",
+    "typescript": "^3.6.2",
+    "qs": "^6.8.0",
+    "qs-iconv": "^1.0.4"
+  },
   "bin": {
-    "evalmd": "./bin/eval-markdown.js",
-    "test-markdown": "./bin/eval-markdown.js",
-    "eval-markdown": "bin/eval-markdown.js"
+    "evalmd": "./dist/script.js",
+    "test-markdown": "./dist/script.js",
+    "eval-markdown": "./dist/script.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test-node": "node ./dist/script.js ./test-readmes/qs.md",
+    "test-tsnode": "ts-node ./src/script.ts ./test-readmes/qs.md"
   }
 }

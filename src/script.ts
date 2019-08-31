@@ -2,7 +2,7 @@
 var path = require('path')
 var yargs = require('yargs')
 var fs = require('fs')
-var evalMarkdown = require('../eval-markdown')
+var evalMarkdown = require('./eval-markdown')
 var argv = yargs
   .usage('$0 - Evaluate the javascript in markdown files')
   .example('$0 <file(s)>', 'Evaluate file(s)')

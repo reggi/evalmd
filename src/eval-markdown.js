@@ -8,7 +8,7 @@ var fs = Promise.promisifyAll(require('fs-extra'))
 var MarkdownIt = require('markdown-it')
 var S = require('underscore.string')
 var acorn = require('acorn')
-var umd = require('acorn-umd')
+var umd = require('./acorn-umd/acorn-umd').default
 var promiseRipple = require('./promise-ripple')
 var promiseSeries = require('./promise-series')
 // var _eval = require('eval')
@@ -448,6 +448,7 @@ var logFactory = main.logFactory = function (store, silence) {
 var acornError = main.acornError = function (nodes, filePath) {
   return function (e) {
     if (!e.stack) return e
+    console.log(e)
     var stack = e.stack
     stack = stackSplit(stack)
     var lineChar = [e.loc.line, ':', e.loc.column].join('')
