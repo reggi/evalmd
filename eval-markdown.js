@@ -319,15 +319,23 @@ var alterNpmModules = main.alterNpmModules = function (code, nodes, prepend) {
   var deps = getDeps(code)
   if (!deps.length) return code
   prepend = (prepend) ? prepend : './'
-  var nonNpm = /^.\.\/|^.\/|^\//
+  var nonNpm = /\/|\\/
   var chars = 0
   _.each(deps, function (dep) {
-    if (dep.source.value && !dep.source.value.match(nonNpm) && !_.includes(natives, dep.source.value)) {
-      var start = chars + dep.source.start + 1
-      var end = chars + dep.source.end - 1
-      var replacement = path.resolve(path.join(prepend, 'node_modules', dep.source.value))
-      code = replacePosition(code, start, end, replacement)
+    var start, end, replacement
+    if (dep.source.raw && dep.source.raw.match(nonNpm) && !_.contains(natives, dep.source.value)) {
+      start = chars + dep.source.start
+      end = chars + dep.source.end
+      replacement = dep.source.raw.replace(/\\/g, '\\\\')
+      chars += Math.abs(replacement.length - dep.source.raw.length)
+    } else if (dep.source.value && !_.contains(natives, dep.source.value)) {
+      start = chars + dep.source.start + 1
+      end = chars + dep.source.end - 1
+      replacement = path.resolve(path.join(prepend, 'node_modules', dep.source.value)).replace(/\\/g, '\\\\')
       chars += Math.abs(replacement.length - dep.source.value.length)
+    }
+    if (replacement) {
+      code = replacePosition(code, start, end, replacement)
     }
   })
   return code
@@ -546,7 +554,7 @@ var evalError = main.evalError = function (filePath, nodes) {
 
 var evalFileAsync = main.evalFileAsync = function (file) {
   return new Promise(function (resolve, reject) {
-    var command = [process.execPath, file].join(' ')
+    var command = [process.execPath, file].map(str => '"' + str + '"').join(' ')
     return child_process.exec(command, function (error, stdout, stderr) {
       if (stdout) process.stdout.write(stdout)
       if (error) return reject(error)
