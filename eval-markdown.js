@@ -554,7 +554,9 @@ var evalError = main.evalError = function (filePath, nodes) {
 
 var evalFileAsync = main.evalFileAsync = function (file) {
   return new Promise(function (resolve, reject) {
-    var command = [process.execPath, file].map(str => '"' + str + '"').join(' ')
+    var command = [process.execPath, file].map(function (str) {
+      return '"' + str + '"'
+    }).join(' ')
     return child_process.exec(command, function (error, stdout, stderr) {
       if (stdout) process.stdout.write(stdout)
       if (error) return reject(error)
