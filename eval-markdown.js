@@ -323,12 +323,12 @@ var alterNpmModules = main.alterNpmModules = function (code, nodes, prepend) {
   var chars = 0
   _.each(deps, function (dep) {
     var start, end, replacement
-    if (dep.source.raw && dep.source.raw.match(nonNpm) && !_.contains(natives, dep.source.value)) {
+    if (dep.source.raw && dep.source.raw.match(nonNpm) && !_.includes(natives, dep.source.value)) {
       start = chars + dep.source.start
       end = chars + dep.source.end
       replacement = dep.source.raw.replace(/\\/g, '\\\\')
       chars += Math.abs(replacement.length - dep.source.raw.length)
-    } else if (dep.source.value && !_.contains(natives, dep.source.value)) {
+    } else if (dep.source.value && !_.includes(natives, dep.source.value)) {
       start = chars + dep.source.start + 1
       end = chars + dep.source.end - 1
       replacement = path.resolve(path.join(prepend, 'node_modules', dep.source.value)).replace(/\\/g, '\\\\')
