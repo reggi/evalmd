@@ -69,7 +69,7 @@ var getExitCode = main.getExitCode = function (mdResults) {
   var evalResultsInstanceofError = _.map(evalResults, function (evalResult) {
     return evalResult instanceof Error
   })
-  var evalResultsHasInstanceofError = _.contains(evalResultsInstanceofError, true)
+  var evalResultsHasInstanceofError = _.includes(evalResultsInstanceofError, true)
   if (evalResultsHasInstanceofError) return 1
   return 0
 }
@@ -194,7 +194,7 @@ var getFences = main.getFences = function (nodes, langs) {
   return _.filter(nodes, function (node) {
     if (node.type !== 'fence') return false
     if (!langs && node.type === 'fence') return true
-    return _.contains(langs, node.info)
+    return _.includes(langs, node.info)
   })
 }
 
@@ -322,7 +322,7 @@ var alterNpmModules = main.alterNpmModules = function (code, nodes, prepend) {
   var nonNpm = /^.\.\/|^.\/|^\//
   var chars = 0
   _.each(deps, function (dep) {
-    if (dep.source.value && !dep.source.value.match(nonNpm) && !_.contains(natives, dep.source.value)) {
+    if (dep.source.value && !dep.source.value.match(nonNpm) && !_.includes(natives, dep.source.value)) {
       var start = chars + dep.source.start + 1
       var end = chars + dep.source.end - 1
       var replacement = path.resolve(path.join(prepend, 'node_modules', dep.source.value))
@@ -779,7 +779,7 @@ module.exports = main
 //     Boolean(node.content.match(/^\/\/ eval prevent/i)),
 //     Boolean(node.content.match(/^\/\/ evalprevent/i))
 //   ]
-//   return _.contains(options, true)
+//   return _.includes(options, true)
 // }
 //
 // block.assignFileViaComment = block.code.match(/\/\/\s(file\s?eval\s|eval\s?file\s)(.+)/i)
@@ -815,7 +815,7 @@ module.exports = main
       //     Boolean(hrefValue.match(/eval prevent/i)),
       //     Boolean(hrefValue.match(/evalprevent/i))
       //   ]
-      //   return _.contains(options, true)
+      //   return _.includes(options, true)
       // })
 //     })
 //   })
@@ -836,7 +836,7 @@ module.exports = main
   //       Boolean(hrefValue.match(/eval prevent/i)),
   //       Boolean(hrefValue.match(/evalprevent/i))
   //     ]
-  //     return _.contains(options, true)
+  //     return _.includes(options, true)
   //   })
   // })
   // return Boolean(needle)
@@ -869,7 +869,7 @@ module.exports = main
 //         Boolean(hrefValue.match(/eval prevent/i)),
 //         Boolean(hrefValue.match(/evalprevent/i))
 //       ]
-//       return _.contains(options, true)
+//       return _.includes(options, true)
 //     })
 //   })
 //   return Boolean(needle)
@@ -892,7 +892,7 @@ module.exports = main
 //         Boolean(hrefValue.match(/eval file/i)),
 //         Boolean(hrefValue.match(/evalfile/i))
 //       ]
-//       return _.contains(options, true)
+//       return _.includes(options, true)
 //     })
 //   })
 //
@@ -927,7 +927,7 @@ module.exports = main
 //       Boolean(hrefValue.match(/eval prevent/i)),
 //       Boolean(hrefValue.match(/evalprevent/i))
 //     ]
-//     return _.contains(options, true)
+//     return _.includes(options, true)
 //   })
 // })
 
@@ -948,7 +948,7 @@ module.exports = main
 //     Boolean(hrefValue.match(/eval file/i)),
 //     Boolean(hrefValue.match(/evalfile/i))
 //   ]
-//   return _.contains(options, true)
+//   return _.includes(options, true)
 // })
 // // console.log(lastLink)
 // // var _.index(node, lastLink)
@@ -968,7 +968,7 @@ module.exports = main
 //       Boolean(hrefValue.match(/eval file/i)),
 //       Boolean(hrefValue.match(/evalfile/i))
 //     ]
-//     return _.contains(options, true)
+//     return _.includes(options, true)
 //   })
 //   var lastLinkOpenIndex = prevIndex(node, nodes, 'link_open')
 //   var haystack = _.slice(nodes, lastLinkOpenIndex, index)
