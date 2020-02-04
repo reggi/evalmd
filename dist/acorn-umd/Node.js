@@ -13,7 +13,6 @@ var __extends = (this && this.__extends) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-var lodash_1 = require("lodash");
 var acorn_1 = require("acorn");
 var NodeHelper = /** @class */ (function (_super) {
     __extends(NodeHelper, _super);
@@ -21,7 +20,7 @@ var NodeHelper = /** @class */ (function (_super) {
     function NodeHelper(settings) {
         var _this = this;
         // @ts-ignore
-        lodash_1.merge(_this, settings);
+        Object.assign(_this, settings);
         return _this;
     }
     return NodeHelper;
