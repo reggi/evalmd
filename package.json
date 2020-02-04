@@ -35,9 +35,10 @@
   },
   "devDependencies": {
     "@types/node": "^12.7.3",
-    "typescript": "^3.6.2",
     "qs": "^6.8.0",
-    "qs-iconv": "^1.0.4"
+    "qs-iconv": "^1.0.4",
+    "ts-node": "^7.0.1",
+    "typescript": "^3.6.2"
   },
   "bin": {
     "evalmd": "./dist/script.js",
@@ -46,7 +47,12 @@
   },
   "scripts": {
     "build": "tsc",
+    "tests-only": "npm run test-node && npm run test-tsnode",
+    "test": "npm run tests-only",
     "test-node": "node ./dist/script.js ./test-readmes/qs.md",
     "test-tsnode": "ts-node ./src/script.ts ./test-readmes/qs.md"
+  },
+  "engines": {
+    "node": ">= 4.2"
   }
 }
