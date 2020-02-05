@@ -1,5 +1,5 @@
 import {assign, clone, find, filter, matches, map, reject, result, sortBy, take, zip} from 'lodash';
-import * as estraverse from 'estraverse';
+import estraverse from 'estraverse';
 import Node from './Node';
 import ImportNode from './ImportNode';
 

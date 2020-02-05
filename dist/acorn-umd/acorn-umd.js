@@ -1,9 +1,12 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 var lodash_1 = require("lodash");
-var estraverse = require("estraverse");
-var Node_1 = require("./Node");
-var ImportNode_1 = require("./ImportNode");
+var estraverse_1 = __importDefault(require("estraverse"));
+var Node_1 = __importDefault(require("./Node"));
+var ImportNode_1 = __importDefault(require("./ImportNode"));
 var isRequireCallee = lodash_1.matches({
     type: 'CallExpression',
     callee: {
@@ -97,7 +100,7 @@ function constructCJSImportNode(ast, node) {
 function findCJS(ast) {
     // Recursively walk ast searching for requires
     var requires = [];
-    estraverse.traverse(ast, {
+    estraverse_1.default.traverse(ast, {
         enter: function (node) {
             function checkRequire(expr) {
                 if (lodash_1.result(expr, 'type') === 'MemberExpression') {

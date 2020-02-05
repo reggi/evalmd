@@ -12,9 +12,12 @@ var __extends = (this && this.__extends) || (function () {
         d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
     };
 })();
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
-var Node_1 = require("./Node");
-var es_lookup_scope_1 = require("es-lookup-scope");
+var Node_1 = __importDefault(require("./Node"));
+var es_lookup_scope_1 = __importDefault(require("es-lookup-scope"));
 var ImportNode = /** @class */ (function (_super) {
     __extends(ImportNode, _super);
     function ImportNode(ast, reference, settings) {
