@@ -6,7 +6,6 @@ var child_process = require('child_process');
 var _ = require('lodash');
 var fs = Promise.promisifyAll(require('fs-extra'));
 var MarkdownIt = require('markdown-it');
-var S = require('underscore.string');
 var acorn = require('acorn');
 var umd = require('./acorn-umd/acorn-umd').default;
 var promiseRipple = require('./promise-ripple');
@@ -195,7 +194,7 @@ var buildPreserveLines = main.buildPreserveLines = function (node$, lines) {
     var nodes = _.flatten([node$]);
     var lineDoc = createLineDoc(lines);
     _.each(nodes, function (node) {
-        var contentLines = S.lines(node.content);
+        var contentLines = String(node.content || '').split(/\r\n?|\n/);
         lineDoc = replaceLines(node.startLine, lineDoc, contentLines);
     });
     return lineDoc.join('\n');
@@ -391,11 +390,11 @@ var debugMsg = main.debugMsg = function () {
 };
 var cleanStack = main.cleanStack = function (errOrStack) {
     if (errOrStack && errOrStack.stack)
-        return S.lines(errOrStack.stack);
+        return String(errOrStack).split(/\r\n?|\n/);
     if (Array.isArray(errOrStack))
         return errOrStack;
     if (errOrStack)
-        return S.lines(errOrStack);
+        return String(errOrStack).split(/\r\n?|\n/);
     return false;
 };
 var logErr = main.logErr = function (err) {
@@ -681,7 +680,7 @@ var assemble = main.assemble = function (filePath, pkg, prepend, blockScope, non
             // create new md instance
             var md = new MarkdownIt();
             // split the markdown file by lines
-            data.markdownLines = S.lines(data.markdown);
+            data.markdownLines = String(data.markdown || '').split(/\r\n?|\n/);
             // get all the nodes
             data.nodes = md.parse(data.markdown, {});
             // map all the nodes
