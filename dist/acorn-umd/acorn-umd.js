@@ -3,6 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+var object_assign_1 = __importDefault(require("object.assign"));
 var lodash_1 = require("lodash");
 var estraverse_1 = __importDefault(require("estraverse"));
 var Node_1 = __importDefault(require("./Node"));
@@ -164,7 +165,7 @@ function findAMD(ast) {
     });
 }
 function default_1(ast, options) {
-    options = lodash_1.assign({
+    options = object_assign_1.default({
         cjs: true,
         // TODO
         amd: false,

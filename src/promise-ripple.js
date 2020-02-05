@@ -1,14 +1,14 @@
-var _ = require('lodash')
 var Promise = require('bluebird')
+var values = require('object.values')
+var entries = require('object.entries')
 
 function promiseRipple (start, props) {
-  props = (props) ? props : start
-  start = (props) ? start : {}
-  props = _.mapValues(props, function (prop, key) {
-    prop.key = key
-    return prop
-  })
-  return Promise.reduce(_.values(props), function (result, action) {
+  props = props || start
+  start = props ? start : {}
+  entries(props).forEach(([key, prop]) => {
+    prop.key = key;
+  });
+  return Promise.reduce(values(props), function (result, action) {
     if (typeof action !== 'function') throw new Error('property values must be functions')
     return Promise.resolve(action(start)).then(function (value) {
       if (start === value) {

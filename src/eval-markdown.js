@@ -3,7 +3,7 @@ var crypto = require('crypto')
 var path = require('path')
 var Promise = require('bluebird')
 var child_process = require('child_process')
-var _ = require('lodash')
+var { chain, each, filter, find, flatten, groupBy, includes, indexOf, last, map, range, slice, uniq, values } = require('lodash')
 var fs = Promise.promisifyAll(require('fs-extra'))
 var MarkdownIt = require('markdown-it')
 var acorn = require('acorn')
@@ -31,7 +31,7 @@ function main (filePath$, packagePath, prepend, blockScope, nonstop, preventEval
   var logStore = []
   DEBUG = debug
   log = logFactory(logStore, silence)
-  var filePaths = _.flatten([filePath$])
+  var filePaths = flatten([filePath$])
   logInfo('it worked if it ends with', 'ok')
   return getPackage(packagePath)
   .then(function (pkg) {
@@ -63,12 +63,12 @@ function main (filePath$, packagePath, prepend, blockScope, nonstop, preventEval
 }
 
 var getExitCode = main.getExitCode = function (mdResults) {
-  var evaluations = _.chain(mdResults).map('evaluated').flatten().value()
-  var evalResults = _.chain(evaluations).map('evalResult').flatten().value()
-  var evalResultsInstanceofError = _.map(evalResults, function (evalResult) {
+  var evaluations = chain(mdResults).map('evaluated').flatten().value()
+  var evalResults = chain(evaluations).map('evalResult').flatten().value()
+  var evalResultsInstanceofError = map(evalResults, function (evalResult) {
     return evalResult instanceof Error
   })
-  var evalResultsHasInstanceofError = _.includes(evalResultsInstanceofError, true)
+  var evalResultsHasInstanceofError = includes(evalResultsInstanceofError, true)
   if (evalResultsHasInstanceofError) return 1
   return 0
 }
@@ -85,10 +85,10 @@ var getPackage = main.getPackage = function (packagePath) {
 }
 
 var previousIndex = main.previousIndex = function (node, nodes, fn) {
-  var index = _.indexOf(nodes, node)
+  var index = indexOf(nodes, node)
   index = index < 0 ? 0 : index
-  var subArr = _.slice(nodes, 0, index)
-  var revIndex = _.chain(subArr)
+  var subArr = slice(nodes, 0, index)
+  var revIndex = chain(subArr)
   .reverse()
   .findIndex(fn)
   .value()
@@ -109,15 +109,15 @@ var previousIndexClose = main.previousIndexClose = function (node, nodes, type) 
 }
 
 var groupChildren = main.groupChildren = function (nodes) {
-  nodes = _.groupBy(nodes, function (node) {
+  nodes = groupBy(nodes, function (node) {
     return previousIndexClose(node, nodes)
   })
-  return _.values(nodes)
+  return values(nodes)
 }
 
 /** searches preceeding nodes for pattern */
 var searchLink = main.searchLink = function (subNodes, pattern) {
-  var textNode = _.find(subNodes, function (node) {
+  var textNode = find(subNodes, function (node) {
     if (!node.content) return false
     return node.content.match(pattern)
   })
@@ -143,7 +143,7 @@ var searchComment = main.searchComment = function (node, pattern) {
 }
 
 var createLineDoc = main.createLineDoc = function (lines) {
-  return _.range(lines).map(function () {
+  return range(lines).map(function () {
     return ''
   })
 }
@@ -151,7 +151,7 @@ var createLineDoc = main.createLineDoc = function (lines) {
 var replaceLines = main.replaceLines = function (start, main, sub) {
   main = (Array.isArray(main)) ? main : main.split('\n')
   sub = (Array.isArray(sub)) ? sub : sub.split('\n')
-  var output = _.flatten([_.slice(main, 0, start), sub, _.slice(main, start + sub.length, main.length)])
+  var output = flatten([slice(main, 0, start), sub, slice(main, start + sub.length, main.length)])
   return output
 }
 
@@ -161,11 +161,11 @@ var getHash = main.getHash = function (content) {
 }
 
 var mapNodes = main.mapNodes = function (nodes) {
-  return _.map(nodes, function (node, index) {
+  return map(nodes, function (node, index) {
     node.children = groupChildren(node.children)
     node.previousFenceIndex = previousIndexType(node, nodes, 'fence')
 
-    var subNodes = _.slice(nodes, node.previousFenceIndex, index)
+    var subNodes = slice(nodes, node.previousFenceIndex, index)
 
     node.fileEval = searchLink(subNodes, /\[(.+)?\]\(#?(eval\s?file|file\s?eval)\)/i) ||
       searchComment(node, /\/\/\s(file\s?eval\s|eval\s?file\s)(.+)/i) ||
@@ -183,30 +183,30 @@ var mapNodes = main.mapNodes = function (nodes) {
 }
 
 var getNodeId = main.getNodeId = function (nodes, filePath) {
-  return _.map(nodes, function (node, index) {
+  return map(nodes, function (node, index) {
     node.id = index + 1
     return node
   })
 }
 
 var getFences = main.getFences = function (nodes, langs) {
-  return _.filter(nodes, function (node) {
+  return filter(nodes, function (node) {
     if (node.type !== 'fence') return false
     if (!langs && node.type === 'fence') return true
-    return _.includes(langs, node.info)
+    return includes(langs, node.info)
   })
 }
 
 var filterPrevented = main.filterPrevented = function (nodes) {
-  return _.filter(nodes, function (node) {
+  return filter(nodes, function (node) {
     return !node.preventEval
   })
 }
 
 var buildPreserveLines = main.buildPreserveLines = function (node$, lines) {
-  var nodes = _.flatten([node$])
+  var nodes = flatten([node$])
   var lineDoc = createLineDoc(lines)
-  _.each(nodes, function (node) {
+  each(nodes, function (node) {
     var contentLines = String(node.content || '').split(/\r\n?|\n/)
     lineDoc = replaceLines(node.startLine, lineDoc, contentLines)
   })
@@ -214,8 +214,8 @@ var buildPreserveLines = main.buildPreserveLines = function (node$, lines) {
 }
 
 var buildConcat = main.buildConcat = function (node$, lines) {
-  var nodes = _.flatten([node$])
-  return _.chain(nodes)
+  var nodes = flatten([node$])
+  return chain(nodes)
   .map(function (node) {
     return node.content
   })
@@ -228,7 +228,7 @@ var getDeps = main.getDeps = function (code) {
   var deps = umd(ast, {
     es6: true, amd: true, cjs: true
   })
-  return _.uniq(deps, function (dep) {
+  return uniq(deps, function (dep) {
     var important = {
       'value': dep.source.value,
       'start': dep.source.start,
@@ -255,7 +255,7 @@ var alterAssignedModule = main.alterAssignedModule = function (code, prepend, pk
   var chars = 0
   name = regExpEscape(name)
   var pattern = new RegExp('^' + name + '($|/.*)')
-  _.each(deps, function (dep) {
+  each(deps, function (dep) {
     var match = dep.source.value.match(pattern)
     if (match) {
       var start = chars + dep.source.start + 1
@@ -273,9 +273,9 @@ var alterSelfModules = main.alterSelfModules = function (code, nodes) {
   var deps = getDeps(code)
   if (!deps.length) return code
   var chars = 0
-  _.each(deps, function (dep) {
+  each(deps, function (dep) {
     if (dep.source.value) {
-      var node = _.find(nodes, {
+      var node = find(nodes, {
         'fileEval': dep.source.value
       })
       if (node && node.fileCreated) {
@@ -296,9 +296,9 @@ var alterPrependModules = main.alterPrependModules = function (code, nodes, prep
   prepend = (prepend) ? prepend : './'
   var localRegex = /^.\.\/|^.\//
   var chars = 0
-  _.each(deps, function (dep) {
+  each(deps, function (dep) {
     if (dep.source.value && dep.source.value.match(localRegex)) {
-      var node = _.find(nodes, {
+      var node = find(nodes, {
         'fileEval': dep.source.value
       })
       if (!node) {
@@ -320,8 +320,8 @@ var alterNpmModules = main.alterNpmModules = function (code, nodes, prepend) {
   prepend = (prepend) ? prepend : './'
   var nonNpm = /^.\.\/|^.\/|^\//
   var chars = 0
-  _.each(deps, function (dep) {
-    if (dep.source.value && !dep.source.value.match(nonNpm) && !_.includes(natives, dep.source.value)) {
+  each(deps, function (dep) {
+    if (dep.source.value && !dep.source.value.match(nonNpm) && !includes(natives, dep.source.value)) {
       var start = chars + dep.source.start + 1
       var end = chars + dep.source.end - 1
       var replacement = path.resolve(path.join(prepend, 'node_modules', dep.source.value))
@@ -358,7 +358,7 @@ var stackSplit = main.stackSplit = function (stack) {
     'frame': [],
     'lines': []
   }
-  _.each(stackLines, function (stackLine) {
+  each(stackLines, function (stackLine) {
     var pattern = /^\s\s\s\sat\s/
     var match = stackLine.match(pattern)
     if (match) {
@@ -379,13 +379,13 @@ var stackJoin = main.stackJoin = function (stack) {
 }
 
 var findErrorNode = main.findErrorNode = function (nodes, line) {
-  return _.find(nodes, function (node) {
+  return find(nodes, function (node) {
     return node.startLine <= line && node.endLine >= line
   })
 }
 
 var errMsg = main.errMsg = function () {
-  var args = _.values(arguments)
+  var args = values(arguments)
   if (args.length > 1) args[0] = chalk.magenta(args[0])
   return [
     chalk.white('evalmd'),
@@ -394,7 +394,7 @@ var errMsg = main.errMsg = function () {
 }
 
 var infoMsg = main.infoMsg = function () {
-  var args = _.values(arguments)
+  var args = values(arguments)
   args[0] = chalk.magenta(args[0])
   return [
     chalk.white('evalmd'),
@@ -403,7 +403,7 @@ var infoMsg = main.infoMsg = function () {
 }
 
 var debugMsg = main.debugMsg = function () {
-  var args = _.values(arguments)
+  var args = values(arguments)
   args[0] = chalk.magenta(args[0])
   return [
     chalk.white('evalmd'),
@@ -420,18 +420,18 @@ var cleanStack = main.cleanStack = function (errOrStack) {
 
 var logErr = main.logErr = function (err) {
   var lines = cleanStack(err)
-  return _.each(lines, function (line) {
+  return each(lines, function (line) {
     return log(errMsg(line))
   })
 }
 
 var logInfo = main.logInfo = function () {
-  var args = _.values(arguments)
+  var args = values(arguments)
   return log(infoMsg.apply(null, args))
 }
 
 var logDebug = main.logDebug = function () {
-  var args = _.values(arguments)
+  var args = values(arguments)
   if (DEBUG) return log(debugMsg.apply(null, args))
 }
 
@@ -481,9 +481,9 @@ var parseLineChar = main.parseLineChar = function (s) {
 }
 
 var getCleanLines = main.getCleanLines = function (incLines, nodes, absFilePath, frame) {
-  var lines = _.map(incLines, function (line) {
+  var lines = map(incLines, function (line) {
     var lineChar = parseLineChar(line)
-    var matchNodes = _.find(nodes, function (node) {
+    var matchNodes = find(nodes, function (node) {
       if (!node.fileEvalHashPath) return false
       return line.match(node.fileEvalHashPath)
     })
@@ -518,12 +518,12 @@ var getCleanLines = main.getCleanLines = function (incLines, nodes, absFilePath,
   lines = lines.reverse()
   var matchFound = false
   if (!frame) {
-    lines = _.filter(lines, function (line) {
+    lines = filter(lines, function (line) {
       if (line.replacement) matchFound = true
       return matchFound
     })
   }
-  lines = _.map(lines, function (line) {
+  lines = map(lines, function (line) {
     if (line.replacement) return line.replacement
     return line.line
   })
@@ -539,7 +539,7 @@ var evalError = main.evalError = function (filePath, nodes) {
     if (cleanLines.length !== 0) stack.lines = cleanLines
     stack.frame = getCleanLines(stack.frame, nodes, absFilePath, true)
     stack.frame.shift()
-    if (_.last(stack.frame) === '') stack.frame.pop()
+    if (last(stack.frame) === '') stack.frame.pop()
     return stackJoin(stack)
   }
 }
@@ -577,7 +577,7 @@ var nonstopErr = main.nonstopErr = function (error, stackWrapper, nonstop) {
 var evaluate = main.evaluate = function (node, nodes, markdownLinesLength, pkg, prepend, nonstop, filePath) {
   return promiseRipple(node, {
     notice: function (node) {
-      var ids = (Array.isArray(node)) ? _.chain(node).map('id').value() : [node.id]
+      var ids = (Array.isArray(node)) ? chain(node).map('id').value() : [node.id]
       var word = (ids.length > 1) ? 'blocks' : 'block'
       logInfo(filePath, ['running', word, ids.join(', ')].join(' '))
     },
@@ -636,7 +636,7 @@ var evaluateScope = main.evaluateScope = function (nodes, markdownLinesLength, p
 var outputCode = main.outputCode = function (node, nodes, markdownLinesLength, pkg, prepend, nonstop, filePath, output, delimeter) {
   return promiseRipple(node, {
     notice: function (node) {
-      var ids = (Array.isArray(node)) ? _.chain(node).map('id').value() : [node.id]
+      var ids = (Array.isArray(node)) ? chain(node).map('id').value() : [node.id]
       var word = (ids.length > 1) ? 'blocks' : 'block'
       logInfo(filePath, ['outputting', word, ids.join(', ')].join(' '))
     },
@@ -696,7 +696,7 @@ var assemble = main.assemble = function (filePath, pkg, prepend, blockScope, non
       // eval nodes
       data.evalNodes = (includePrevented) ? data.allJsFences : data.permittedFences
       // get the blockscope
-      data.blockScope = blockScope || Boolean(_.chain(data.evalNodes).map('fileEval').without(false).value().length)
+      data.blockScope = blockScope || Boolean(chain(data.evalNodes).map('fileEval').without(false).value().length)
       return data
     },
     evaluated: function (data) {
@@ -729,10 +729,10 @@ module.exports = main
 
 // console.log(JSON.stringify(nodes, null, 2))
 
-  // var childrenSets = _.map(subNodes, 'children')
+  // var childrenSets = map(subNodes, 'children')
   // if (!childrenSets.length) return false
-  // var found = _.find(childrenSets, function (children) {
-  //   return _.find(children, function (child) {
+  // var found = find(childrenSets, function (children) {
+  //   return find(children, function (child) {
   //     if (child.type === 'link_open') {
   //       if (!child.attrs) return false
   //       var hrefIndex = child.attrIndex('href')
@@ -749,13 +749,13 @@ module.exports = main
 // }
 
 // var previousSiblingFileEval = main.previousSiblingFileEval = function (node, nodes) {
-//   var index = _.indexOf(nodes, node)
-//   var subNodes = _.slice(nodes, node.previousFenceIndex, index)
-//   var childrenSets = _.map(subNodes, 'children')
-//   childrenSets = _.flatten(childrenSets)
+//   var index = indexOf(nodes, node)
+//   var subNodes = slice(nodes, node.previousFenceIndex, index)
+//   var childrenSets = map(subNodes, 'children')
+//   childrenSets = flatten(childrenSets)
 //   if (!childrenSets.length) return false
-//   var found = _.find(childrenSets, function (children) {
-//     return _.find(children, function (child) {
+//   var found = find(childrenSets, function (children) {
+//     return find(children, function (child) {
 //       if (child.type === 'link_open') {
 //         if (!child.attrs) return false
 //         var hrefIndex = child.attrIndex('href')
@@ -766,7 +766,7 @@ module.exports = main
 //     })
 //   })
 //   console.log(found)
-// var text = _.find(found, {
+// var text = find(found, {
 //   'type': 'text'
 // })
 // return (text && text.content) ? text.content : false
@@ -779,7 +779,7 @@ module.exports = main
 //     Boolean(node.content.match(/^\/\/ eval prevent/i)),
 //     Boolean(node.content.match(/^\/\/ evalprevent/i))
 //   ]
-//   return _.includes(options, true)
+//   return includes(options, true)
 // }
 //
 // block.assignFileViaComment = block.code.match(/\/\/\s(file\s?eval\s|eval\s?file\s)(.+)/i)
@@ -789,11 +789,11 @@ module.exports = main
 // }
 
 // var preventEval = main.preventEval = function (node, nodes) {
-//   var index = _.indexOf(nodes, node)
-//   var subNodes = _.slice(nodes, node.prevFenceIndex, index)
-//   var result = _.find(subNodes, function (node) {
+//   var index = indexOf(nodes, node)
+//   var subNodes = slice(nodes, node.prevFenceIndex, index)
+//   var result = find(subNodes, function (node) {
 //     if (!node.children) return false
-//     return _.find(node.children, function (childElement) {
+//     return find(node.children, function (childElement) {
 //       if (childElement.type == "link_open") {
 //         var hrefIndex = childElement.attrIndex('href')
 //         var hrefValue = childElement.attrs[hrefIndex][1]
@@ -804,7 +804,7 @@ module.exports = main
 //         var hrefValue = childElement.attrs[hrefIndex][1]
 //
 //       }
-      // return _.find(childElement, function (child) {
+      // return find(childElement, function (child) {
       //   if (child.type !== 'link_open') return false
       //   var hrefIndex = child.attrIndex('href')
       //   var hrefValue = child.attrs[hrefIndex][1]
@@ -815,17 +815,17 @@ module.exports = main
       //     Boolean(hrefValue.match(/eval prevent/i)),
       //     Boolean(hrefValue.match(/evalprevent/i))
       //   ]
-      //   return _.includes(options, true)
+      //   return includes(options, true)
       // })
 //     })
 //   })
 //   return Boolean(result)
 // }
-  // var index = _.indexOf(nodes, node)
-  // var haystack = _.slice(nodes, node.prevFenceIndex, index)
-  // var needle = _.find(haystack, function (node) {
+  // var index = indexOf(nodes, node)
+  // var haystack = slice(nodes, node.prevFenceIndex, index)
+  // var needle = find(haystack, function (node) {
   //   if (!node.children) return false
-  //   return _.find(node.children, function (child) {
+  //   return find(node.children, function (child) {
   //     if (child.type !== 'link_open') return false
   //     if (!child.attrs) return false
   //     var hrefIndex = child.attrIndex('href')
@@ -836,13 +836,13 @@ module.exports = main
   //       Boolean(hrefValue.match(/eval prevent/i)),
   //       Boolean(hrefValue.match(/evalprevent/i))
   //     ]
-  //     return _.includes(options, true)
+  //     return includes(options, true)
   //   })
   // })
   // return Boolean(needle)
 // }
 
-// nodes = _.map(nodes, function (node) {
+// nodes = map(nodes, function (node) {
 //   node.children = elements(node.children)
 //   node.prevFenceIndex = prevIndex(node, nodes, 'fence')
 //   // console.log(node.children)
@@ -854,11 +854,11 @@ module.exports = main
 // console.log(nodes)
 
 // var preventEval = main.preventEval = function (node, nodes) {
-//   var index = _.indexOf(nodes, node)
-//   var haystack = _.slice(nodes, node.prevFenceIndex, index)
-//   var needle = _.find(haystack, function (node) {
+//   var index = indexOf(nodes, node)
+//   var haystack = slice(nodes, node.prevFenceIndex, index)
+//   var needle = find(haystack, function (node) {
 //     if (!node.children) return false
-//     return _.find(node.children, function (child) {
+//     return find(node.children, function (child) {
 //       if (child.type !== 'link_open') return false
 //       if (!child.attrs) return false
 //       var hrefIndex = child.attrIndex('href')
@@ -869,19 +869,19 @@ module.exports = main
 //         Boolean(hrefValue.match(/eval prevent/i)),
 //         Boolean(hrefValue.match(/evalprevent/i))
 //       ]
-//       return _.includes(options, true)
+//       return includes(options, true)
 //     })
 //   })
 //   return Boolean(needle)
 // }
 //
 // var fileEval = main.fileEval = function (node, nodes) {
-//   var index = _.indexOf(nodes, node)
-//   var haystack = _.slice(nodes, node.prevFenceIndex, index)
+//   var index = indexOf(nodes, node)
+//   var haystack = slice(nodes, node.prevFenceIndex, index)
 //
-//   var needle = _.find(haystack, function (node) {
+//   var needle = find(haystack, function (node) {
 //     if (!node.children) return false
-//     return _.find(node.children, function (child) {
+//     return find(node.children, function (child) {
 //       if (child.type !== 'link_open') return false
 //       if (!child.attrs) return false
 //       var hrefIndex = child.attrIndex('href')
@@ -892,7 +892,7 @@ module.exports = main
 //         Boolean(hrefValue.match(/eval file/i)),
 //         Boolean(hrefValue.match(/evalfile/i))
 //       ]
-//       return _.includes(options, true)
+//       return includes(options, true)
 //     })
 //   })
 //
@@ -904,21 +904,21 @@ module.exports = main
 // console.log(nodes)
 
 // var fileName = main.fileName = function (node, nodes) {
-//   var index = _.indexOf(nodes, node)
-//   var haystack = _.slice(nodes, node.prevFenceIndex, index)
+//   var index = indexOf(nodes, node)
+//   var haystack = slice(nodes, node.prevFenceIndex, index)
 //
-//   return _.map(haystack, function (node, index) {
-//     node.children = _.map(node.children, function (child) {
+//   return map(haystack, function (node, index) {
+//     node.children = map(node.children, function (child) {
 //       var prevLinkOpen = prevIndex(child, node.children, 'link_open')
-//       var index = _.indexOf(node.children, child)
+//       var index = indexOf(node.children, child)
 //       console.log([prevLinkOpen, index])
-//       var haystack = _.slice(node.children, prevLinkOpen, index)
+//       var haystack = slice(node.children, prevLinkOpen, index)
 //
 //       console.log(haystack)
 
-// var needle = _.find(haystack, function (child) {
+// var needle = find(haystack, function (child) {
 //
-//   return _.find(node.children, function (child) {
+//   return find(node.children, function (child) {
 //     var hrefIndex = child.attrIndex('href')
 //     var hrefValue = child.attrs[hrefIndex][1]
 //     var options = [
@@ -927,7 +927,7 @@ module.exports = main
 //       Boolean(hrefValue.match(/eval prevent/i)),
 //       Boolean(hrefValue.match(/evalprevent/i))
 //     ]
-//     return _.includes(options, true)
+//     return includes(options, true)
 //   })
 // })
 
@@ -937,7 +937,7 @@ module.exports = main
 // })
 
 // if (!node.children) return node
-// var lastLink = _.findIndex(node.children, function (child) {
+// var lastLink = findIndex(node.children, function (child) {
 //   if (child.type !== 'link_open') return false
 //   if (!child.attrs) return false
 //   var hrefIndex = child.attrIndex('href')
@@ -948,16 +948,16 @@ module.exports = main
 //     Boolean(hrefValue.match(/eval file/i)),
 //     Boolean(hrefValue.match(/evalfile/i))
 //   ]
-//   return _.includes(options, true)
+//   return includes(options, true)
 // })
 // // console.log(lastLink)
-// // var _.index(node, lastLink)
-// var haystack = _.slice(nodes, lastLink, index)
+// // var index(node, lastLink)
+// var haystack = slice(nodes, lastLink, index)
 // console.log(haystack)
 
-// var subNeedles = _.map(haystack, function (node) {
+// var subNeedles = map(haystack, function (node) {
 //   if (!node.children) return false
-//   var node = _.find(node.children, function (child) {
+//   var node = find(node.children, function (child) {
 //     if (child.type !== 'link_open') return false
 //     if (!child.attrs) return false
 //     var hrefIndex = child.attrIndex('href')
@@ -968,11 +968,11 @@ module.exports = main
 //       Boolean(hrefValue.match(/eval file/i)),
 //       Boolean(hrefValue.match(/evalfile/i))
 //     ]
-//     return _.includes(options, true)
+//     return includes(options, true)
 //   })
 //   var lastLinkOpenIndex = prevIndex(node, nodes, 'link_open')
-//   var haystack = _.slice(nodes, lastLinkOpenIndex, index)
-//   return _.find(haystack, function (child) {
+//   var haystack = slice(nodes, lastLinkOpenIndex, index)
+//   return find(haystack, function (child) {
 //     return child.type === "text"
 //   })
 // })
@@ -981,9 +981,9 @@ module.exports = main
 // console.log(JSON.stringify(nodes, null, 2))
 // console.log(nodes)
 
-// _.each(nodes, function (node) {
+// each(nodes, function (node) {
 //   if (node.type === 'inline') {
-//     _.each(node.children, function (child) {
+//     each(node.children, function (child) {
 //       if (child.attrs) {
 //         var hrefIndex = child.attrIndex('href')
 //         var hrefValue = child.attrs[hrefIndex][1]
@@ -994,10 +994,10 @@ module.exports = main
 // })
 
 // var prevented = main.prevented = function (node, nodes) {
-//   var index = _.indexOf(nodes, node)
+//   var index = indexOf(nodes, node)
 //   return [i, index]
-//   // var hay = _.split(arr, start, end)
-//   // return _.find(hay, {
+//   // var hay = split(arr, start, end)
+//   // return find(hay, {
 //   //   'prevent': true
 //   // })
 // }
@@ -1018,13 +1018,13 @@ module.exports = main
 
 // if (!node.type.match('_close')) return null
 // if (!node.type.match('_close')) return null
-// var subNodes = _.slice(nodes, index + 1)
-// var endingIndex = _.findIndex(subNodes, node.tag)
+// var subNodes = slice(nodes, index + 1)
+// var endingIndex = findIndex(subNodes, node.tag)
 
-// return _.slice(index, endingIndex)
+// return slice(index, endingIndex)
 
     //
-    //   var pieceHref = _.find(child, function (piece) {
+    //   var pieceHref = find(child, function (piece) {
     //     if (piece.type !== 'link_open') return false
     //     if (!piece.attrs) return false
     //     var hrefIndex = piece.attrIndex('href')
@@ -1038,7 +1038,7 @@ module.exports = main
     // })
 
 // var addEvalCode = main.addEvalCode = function (nodes, blockScope, markdownLinesLength, pkg, prepend, nonstop) {
-//   return _.map(nodes, function (node) {
+//   return map(nodes, function (node) {
 //     node.evalCode = false
 //     if (!blockScope) return node
 //     node.evalCode = catchNonstop(function () {
@@ -1094,15 +1094,15 @@ module.exports = main
 
 // var fileEval = main.fileEval = function (node, nodes) {
 //   // get the index for the node
-//   var index = _.indexOf(nodes, node)
+//   var index = indexOf(nodes, node)
 //   // split the nodes get all between last fence and this node
-//   var subNodes = _.slice(nodes, node.previousFenceIndex, index)
+//   var subNodes = slice(nodes, node.previousFenceIndex, index)
 //   // map loop / find
 //
 //   // get the href value
-//   var href = _.chain(subNodes).map(function (node) {
-//     return _.find(node.children, function (child) {
-//       return _.find(child, function (piece) {
+//   var href = chain(subNodes).map(function (node) {
+//     return find(node.children, function (child) {
+//       return find(child, function (piece) {
 //         if (piece.type !== 'link_open') return false
 //         if (!piece.attrs) return false
 //         var hrefIndex = piece.attrIndex('href')
@@ -1113,7 +1113,7 @@ module.exports = main
 //   }).flattenDeep().without(false).value()
 //   // if heref get the text of the href
 //   if (href) {
-//     var hrefText = _.find(href, {
+//     var hrefText = find(href, {
 //       'type': 'text'
 //     })
 //     if (hrefText && hrefText.content) {
@@ -1135,13 +1135,13 @@ module.exports = main
 //   // get the nodes
 //
 //   // search through children nodes
-//   var value = _.map(subNodes, function (node) {
-//     return _.map(node.children, function (child) {
-//       var pieceText = _.find(child, function (piece) {
+//   var value = map(subNodes, function (node) {
+//     return map(node.children, function (child) {
+//       var pieceText = find(child, function (piece) {
 //         if (piece.type !== 'text') return false
 //         return piece.content.match(/\[\]\(#?(eval\s?prevent|prevent\s?eval)\)/i)
 //       })
-//       var pieceHref = _.find(child, function (piece) {
+//       var pieceHref = find(child, function (piece) {
 //         if (piece.type !== 'link_open') return false
 //         if (!piece.attrs) return false
 //         var hrefIndex = piece.attrIndex('href')
@@ -1152,7 +1152,7 @@ module.exports = main
 //     })
 //   })
 //   // clean up the child nodes
-//   var found = _.chain(value).flatten().without(false).value()
+//   var found = chain(value).flatten().without(false).value()
 //   // if child nodes match return true
 //   if (found && found.length) {
 //     return true
@@ -1172,13 +1172,13 @@ module.exports = main
 //
 // var fileEval = main.fileEval = function (node, nodes) {
 //   // get the index for the node
-//   var index = _.indexOf(nodes, node)
+//   var index = indexOf(nodes, node)
 //   // split the nodes get all between last fence and this node
-//   var subNodes = _.slice(nodes, node.previousFenceIndex, index)
+//   var subNodes = slice(nodes, node.previousFenceIndex, index)
 //   // map loop / find
-//   var text = _.chain(subNodes).map(function (node) {
-//     return _.map(node.children, function (child) {
-//       return _.map(child, function (piece) {
+//   var text = chain(subNodes).map(function (node) {
+//     return map(node.children, function (child) {
+//       return map(child, function (piece) {
 //         if (piece.type !== 'text') return false
 //         return piece.content.match(/\[(.+?)\]\(#?(eval\s?file|file\s?eval)\)/i)
 //       })
@@ -1189,9 +1189,9 @@ module.exports = main
 //     return text[1]
 //   }
 //   // get the href value
-//   var href = _.chain(subNodes).map(function (node) {
-//     return _.find(node.children, function (child) {
-//       return _.find(child, function (piece) {
+//   var href = chain(subNodes).map(function (node) {
+//     return find(node.children, function (child) {
+//       return find(child, function (piece) {
 //         if (piece.type !== 'link_open') return false
 //         if (!piece.attrs) return false
 //         var hrefIndex = piece.attrIndex('href')
@@ -1202,7 +1202,7 @@ module.exports = main
 //   }).flattenDeep().without(false).value()
 //   // if heref get the text of the href
 //   if (href) {
-//     var hrefText = _.find(href, {
+//     var hrefText = find(href, {
 //       'type': 'text'
 //     })
 //     if (hrefText && hrefText.content) {
@@ -1222,9 +1222,9 @@ module.exports = main
 //
 // var searchLink = main.searchLink = function (subNodes, pattern) {
 //   // console.log(subNodes)
-//   var href = _.chain(subNodes).map(function (node) {
-//     return _.find(node.children, function (child) {
-//       return _.find(child, function (piece) {
+//   var href = chain(subNodes).map(function (node) {
+//     return find(node.children, function (child) {
+//       return find(child, function (piece) {
 //         if (piece.type !== 'link_open') return false
 //         if (!piece.attrs) return false
 //         var hrefIndex = piece.attrIndex('href')
@@ -1235,7 +1235,7 @@ module.exports = main
 //   }).flattenDeep().without(false).value()
 //   // if heref get the text of the href
 //   if (href) {
-//     var hrefText = _.find(href, {
+//     var hrefText = find(href, {
 //       'type': 'text'
 //     })
 //     if (hrefText && hrefText.content) {

@@ -29,6 +29,9 @@
     "fs-extra": "reggi/node-fs-extra#enhanced",
     "lodash": "^4.17.15",
     "markdown-it": "^5.1.0",
+    "object.assign": "^4.1.0",
+    "object.entries": "^1.1.1",
+    "object.values": "^1.1.1",
     "os-tmpdir": "^1.0.2",
     "yargs": "^3.32.0"
   },
