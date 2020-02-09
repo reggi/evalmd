@@ -1,2 +1,3 @@
 import:
   - ljharb/travis-ci:node/majors/gte_4.yml
+  - ljharb/travis-ci:node/posttest.yml
