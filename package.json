@@ -28,7 +28,7 @@
     "estraverse": "^4.3.0",
     "fs-extra": "reggi/node-fs-extra#enhanced",
     "lodash": "^4.17.15",
-    "markdown-it": "^5.1.0",
+    "markdown-it": "^12.3.2",
     "object.assign": "^4.1.0",
     "object.entries": "^1.1.1",
     "object.values": "^1.1.1",
