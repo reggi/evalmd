@@ -1,10 +1,10 @@
 var osTmpDir = require('os-tmpdir');
 var crypto = require('crypto');
 var path = require('path');
-var Promise = require('bluebird');
 var child_process = require('child_process');
 var _a = require('lodash'), chain = _a.chain, each = _a.each, filter = _a.filter, find = _a.find, flatten = _a.flatten, groupBy = _a.groupBy, includes = _a.includes, indexOf = _a.indexOf, last = _a.last, map = _a.map, range = _a.range, slice = _a.slice, uniq = _a.uniq, values = _a.values;
-var fs = Promise.promisifyAll(require('fs-extra'));
+var promisify = require('util.promisify');
+var fsExtra = require('fs-extra');
 var MarkdownIt = require('markdown-it');
 var acorn = require('acorn');
 var umd = require('./acorn-umd/acorn-umd').default;
@@ -13,6 +13,12 @@ var promiseSeries = require('./promise-series');
 // var _eval = require('eval')
 var chalk = require('chalk');
 var temp = path.join(osTmpDir(), 'evalmd');
+var fs = {
+    readFileAsync: promisify(fsExtra.readFile),
+    mkdirsAsync: promisify(fsExtra.mkdirs),
+    writeFileAsync: promisify(fsExtra.writeFile),
+    unlinkAsync: promisify(fsExtra.unlink)
+};
 var log = false;
 var DEBUG = false;
 /**
@@ -32,9 +38,9 @@ function main(filePath$, packagePath, prepend, blockScope, nonstop, preventEval,
     logInfo('it worked if it ends with', 'ok');
     return getPackage(packagePath)
         .then(function (pkg) {
-        return Promise.map(filePaths, function (filePath) {
+        return Promise.all(filePaths.map(function (filePath) {
             return assemble(filePath, pkg, prepend, blockScope, nonstop, preventEval, includePrevented, output, delimeter);
-        });
+        }));
     })
         .then(function (mdResults) {
         // console.log(mdResults)

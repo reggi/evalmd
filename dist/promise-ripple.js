@@ -1,4 +1,3 @@
-var Promise = require('bluebird');
 var values = require('object.values');
 var entries = require('object.entries');
 function promiseRipple(start, props) {
@@ -8,19 +7,21 @@ function promiseRipple(start, props) {
         var key = _a[0], prop = _a[1];
         prop.key = key;
     });
-    return Promise.reduce(values(props), function (result, action) {
-        if (typeof action !== 'function')
-            throw new Error('property values must be functions');
-        return Promise.resolve(action(start)).then(function (value) {
-            if (start === value) {
-                return value;
-            }
-            else {
-                start[action.key] = value;
-                return value;
-            }
+    return values(props).reduce(function (acc, action) {
+        return acc.then(function () {
+            if (typeof action !== 'function')
+                throw new Error('property values must be functions');
+            return Promise.resolve(action(start)).then(function (value) {
+                if (start === value) {
+                    return value;
+                }
+                else {
+                    start[action.key] = value;
+                    return value;
+                }
+            });
         });
-    }, null)
+    }, Promise.resolve(null))
         .then(function () {
         return start;
     });
