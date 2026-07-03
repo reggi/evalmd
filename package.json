@@ -52,8 +52,8 @@
     "tests-only": "npm run test-node && npm run test-tsnode",
     "test": "npm run tests-only",
     "posttest": "npx npm@\">= 10.2\" audit --production",
-    "test-node": "node ./dist/script.js ./test-readmes/qs.md",
-    "test-tsnode": "ts-node ./src/script.ts ./test-readmes/qs.md"
+    "test-node": "node ./dist/script.js ./test-readmes/qs.md ./test-readmes/fence-spaces.md",
+    "test-tsnode": "ts-node ./src/script.ts ./test-readmes/qs.md ./test-readmes/fence-spaces.md"
   },
   "engines": {
     "node": ">= 4.2"

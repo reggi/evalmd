@@ -182,7 +182,9 @@ var getFences = main.getFences = function (nodes, langs) {
             return false;
         if (!langs && node.type === 'fence')
             return true;
-        return includes(langs, node.info);
+        // commonmark trims the info string and takes its first word as the language
+        var lang = String(node.info || '').trim().split(/\s+/)[0];
+        return includes(langs, lang);
     });
 };
 var filterPrevented = main.filterPrevented = function (nodes) {
