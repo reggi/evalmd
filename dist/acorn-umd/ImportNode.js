@@ -30,7 +30,7 @@ var ImportNode = /** @class */ (function (_super) {
         get: function () {
             return es_lookup_scope_1.default(this, this.ast);
         },
-        enumerable: true,
+        enumerable: false,
         configurable: true
     });
     return ImportNode;

@@ -1,28 +1,25 @@
 import assign from 'object.assign';
-import {clone, find, filter, matches, map, reject, result, sortBy, take, zip} from 'lodash';
 import estraverse from 'estraverse';
 import Node from './Node';
 import ImportNode from './ImportNode';
 
-const isRequireCallee = matches({
-  type: 'CallExpression',
-  callee: {
-    name: 'require',
-    type: 'Identifier'
-  }
-});
+function isRequireCallee(node) {
+  return node.type === 'CallExpression'
+    && !!node.callee
+    && node.callee.name === 'require'
+    && node.callee.type === 'Identifier';
+}
 
-const isDefineCallee = matches({
-  type: 'CallExpression',
-  callee: {
-    name: 'define',
-    type: 'Identifier'
-  }
-});
+function isDefineCallee(node) {
+  return node.type === 'CallExpression'
+    && !!node.callee
+    && node.callee.name === 'define'
+    && node.callee.type === 'Identifier';
+}
 
-const isArrayExpr = matches({
-  type: 'ArrayExpression'
-});
+function isArrayExpr(node) {
+  return node.type === 'ArrayExpression';
+}
 
 function isFuncExpr(node) {
   return /FunctionExpression$/.test(node.type);
@@ -41,7 +38,7 @@ function constructImportNode(ast, node, type) {
 function createImportSpecifier(source, definition, isDef) {
   let imported;
   if (definition.type === 'MemberExpression') {
-    imported = clone(definition.property);
+    imported = assign({}, definition.property);
     isDef = false;
   }
 
@@ -115,7 +112,7 @@ function findCJS(ast) {
   estraverse.traverse(ast, {
     enter(node) {
       function checkRequire(expr) {
-        if (result(expr, 'type') === 'MemberExpression') {
+        if (expr && expr.type === 'MemberExpression') {
           expr = expr.object;
         }
         if (expr && isRequireCallee(expr)) {
@@ -143,8 +140,8 @@ function findCJS(ast) {
 
   // Filter the overlapping requires (e.g. if var x = require('./x') it'll show up twice).
   // Do this by just checking line #'s
-  return reject(requires, node => {
-      return requires.some(parent =>
+  return requires.filter(node => {
+      return !requires.some(parent =>
         [node.start, node.stop].some(pos => pos > parent.start && pos < parent.end));
     })
     .map(node => constructCJSImportNode(ast, node));
@@ -152,22 +149,22 @@ function findCJS(ast) {
 
 // Note there can be more than one define per file with global registeration.
 function findAMD(ast) {
-  return map(filter(ast.body, {
-    type: 'ExpressionStatement'
-  }), 'expression')
+  return ast.body
+  .filter(node => node.type === 'ExpressionStatement')
+  .map(node => node.expression)
   .filter(isDefineCallee)
   // Ensure the define takes params and has a function
   .filter(node => node.arguments.length <= 3)
-  .filter(node => filter(node.arguments, isFuncExpr).length === 1)
-  .filter(node => filter(node.arguments, isArrayExpr).length <= 1)
+  .filter(node => node.arguments.filter(isFuncExpr).length === 1)
+  .filter(node => node.arguments.filter(isArrayExpr).length <= 1)
   // Now just zip the array arguments and the provided function params
   .map(node => {
     let outnode:any = constructImportNode(ast, node, 'AMDImport');
 
-    let func = find(node.arguments, isFuncExpr);
-    let imports = find(node.arguments, isArrayExpr) || {elements: []};
+    let func = node.arguments.find(isFuncExpr);
+    let imports = node.arguments.find(isArrayExpr) || {elements: []};
 
-    let params = take(func.params, imports.elements.length);
+    let params = func.params.slice(0, imports.elements.length);
     outnode.specifiers = params;
 
     if (imports) {
@@ -175,7 +172,7 @@ function findAMD(ast) {
       // represent this structure
       outnode.sources = imports.elements.map(imp => createSourceNode(node, imp));
       // Make nicer repr: [[importSrc, paramName]]
-      outnode.imports = zip(imports.elements, params);
+      outnode.imports = imports.elements.map((imp, i) => [imp, params[i]]);
     }
     return outnode;
   });
@@ -196,9 +193,8 @@ export default function(ast, options) {
   }
 
   if (options.es6) {
-    result.push(...filter(ast.body, {
-      type: 'ImportDeclaration'
-    })
+    result.push(...ast.body
+    .filter(node => node.type === 'ImportDeclaration')
     .map(node => new ImportNode(ast, node, node)));
   }
 
@@ -206,5 +202,5 @@ export default function(ast, options) {
     result.push(...findAMD(ast));
   }
 
-  return sortBy(result, 'start');
+  return result.sort((a, b) => a.start - b.start);
 }

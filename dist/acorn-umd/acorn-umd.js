@@ -4,27 +4,24 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 var object_assign_1 = __importDefault(require("object.assign"));
-var lodash_1 = require("lodash");
 var estraverse_1 = __importDefault(require("estraverse"));
 var Node_1 = __importDefault(require("./Node"));
 var ImportNode_1 = __importDefault(require("./ImportNode"));
-var isRequireCallee = lodash_1.matches({
-    type: 'CallExpression',
-    callee: {
-        name: 'require',
-        type: 'Identifier'
-    }
-});
-var isDefineCallee = lodash_1.matches({
-    type: 'CallExpression',
-    callee: {
-        name: 'define',
-        type: 'Identifier'
-    }
-});
-var isArrayExpr = lodash_1.matches({
-    type: 'ArrayExpression'
-});
+function isRequireCallee(node) {
+    return node.type === 'CallExpression'
+        && !!node.callee
+        && node.callee.name === 'require'
+        && node.callee.type === 'Identifier';
+}
+function isDefineCallee(node) {
+    return node.type === 'CallExpression'
+        && !!node.callee
+        && node.callee.name === 'define'
+        && node.callee.type === 'Identifier';
+}
+function isArrayExpr(node) {
+    return node.type === 'ArrayExpression';
+}
 function isFuncExpr(node) {
     return /FunctionExpression$/.test(node.type);
 }
@@ -40,7 +37,7 @@ function constructImportNode(ast, node, type) {
 function createImportSpecifier(source, definition, isDef) {
     var imported;
     if (definition.type === 'MemberExpression') {
-        imported = lodash_1.clone(definition.property);
+        imported = object_assign_1.default({}, definition.property);
         isDef = false;
     }
     // Add the specifier
@@ -104,7 +101,7 @@ function findCJS(ast) {
     estraverse_1.default.traverse(ast, {
         enter: function (node) {
             function checkRequire(expr) {
-                if (lodash_1.result(expr, 'type') === 'MemberExpression') {
+                if (expr && expr.type === 'MemberExpression') {
                     expr = expr.object;
                 }
                 if (expr && isRequireCallee(expr)) {
@@ -130,8 +127,8 @@ function findCJS(ast) {
     });
     // Filter the overlapping requires (e.g. if var x = require('./x') it'll show up twice).
     // Do this by just checking line #'s
-    return lodash_1.reject(requires, function (node) {
-        return requires.some(function (parent) {
+    return requires.filter(function (node) {
+        return !requires.some(function (parent) {
             return [node.start, node.stop].some(function (pos) { return pos > parent.start && pos < parent.end; });
         });
     })
@@ -139,27 +136,27 @@ function findCJS(ast) {
 }
 // Note there can be more than one define per file with global registeration.
 function findAMD(ast) {
-    return lodash_1.map(lodash_1.filter(ast.body, {
-        type: 'ExpressionStatement'
-    }), 'expression')
+    return ast.body
+        .filter(function (node) { return node.type === 'ExpressionStatement'; })
+        .map(function (node) { return node.expression; })
         .filter(isDefineCallee)
         // Ensure the define takes params and has a function
         .filter(function (node) { return node.arguments.length <= 3; })
-        .filter(function (node) { return lodash_1.filter(node.arguments, isFuncExpr).length === 1; })
-        .filter(function (node) { return lodash_1.filter(node.arguments, isArrayExpr).length <= 1; })
+        .filter(function (node) { return node.arguments.filter(isFuncExpr).length === 1; })
+        .filter(function (node) { return node.arguments.filter(isArrayExpr).length <= 1; })
         // Now just zip the array arguments and the provided function params
         .map(function (node) {
         var outnode = constructImportNode(ast, node, 'AMDImport');
-        var func = lodash_1.find(node.arguments, isFuncExpr);
-        var imports = lodash_1.find(node.arguments, isArrayExpr) || { elements: [] };
-        var params = lodash_1.take(func.params, imports.elements.length);
+        var func = node.arguments.find(isFuncExpr);
+        var imports = node.arguments.find(isArrayExpr) || { elements: [] };
+        var params = func.params.slice(0, imports.elements.length);
         outnode.specifiers = params;
         if (imports) {
             // Use an array even though its not spec as there isn't a better way to
             // represent this structure
             outnode.sources = imports.elements.map(function (imp) { return createSourceNode(node, imp); });
             // Make nicer repr: [[importSrc, paramName]]
-            outnode.imports = lodash_1.zip(imports.elements, params);
+            outnode.imports = imports.elements.map(function (imp, i) { return [imp, params[i]]; });
         }
         return outnode;
     });
@@ -176,14 +173,13 @@ function default_1(ast, options) {
         result.push.apply(result, findCJS(ast));
     }
     if (options.es6) {
-        result.push.apply(result, lodash_1.filter(ast.body, {
-            type: 'ImportDeclaration'
-        })
+        result.push.apply(result, ast.body
+            .filter(function (node) { return node.type === 'ImportDeclaration'; })
             .map(function (node) { return new ImportNode_1.default(ast, node, node); }));
     }
     if (options.amd) {
         result.push.apply(result, findAMD(ast));
     }
-    return lodash_1.sortBy(result, 'start');
+    return result.sort(function (a, b) { return a.start - b.start; });
 }
 exports.default = default_1;

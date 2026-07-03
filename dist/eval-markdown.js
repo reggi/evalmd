@@ -2,7 +2,7 @@ var osTmpDir = require('os-tmpdir');
 var crypto = require('crypto');
 var path = require('path');
 var child_process = require('child_process');
-var _a = require('lodash'), chain = _a.chain, each = _a.each, filter = _a.filter, find = _a.find, flatten = _a.flatten, groupBy = _a.groupBy, includes = _a.includes, indexOf = _a.indexOf, last = _a.last, map = _a.map, range = _a.range, slice = _a.slice, uniq = _a.uniq, values = _a.values;
+var _a = require('lodash'), flatten = _a.flatten, groupBy = _a.groupBy, range = _a.range, values = _a.values;
 var promisify = require('util.promisify');
 var fsExtra = require('fs-extra');
 var MarkdownIt = require('markdown-it');
@@ -66,12 +66,12 @@ function main(filePath$, packagePath, prepend, blockScope, nonstop, preventEval,
     });
 }
 var getExitCode = main.getExitCode = function (mdResults) {
-    var evaluations = chain(mdResults).map('evaluated').flatten().value();
-    var evalResults = chain(evaluations).map('evalResult').flatten().value();
-    var evalResultsInstanceofError = map(evalResults, function (evalResult) {
+    var evaluations = flatten(mdResults.map(function (mdResult) { return mdResult.evaluated; }));
+    var evalResults = flatten(evaluations.map(function (evaluation) { return evaluation.evalResult; }));
+    var evalResultsInstanceofError = evalResults.map(function (evalResult) {
         return evalResult instanceof Error;
     });
-    var evalResultsHasInstanceofError = includes(evalResultsInstanceofError, true);
+    var evalResultsHasInstanceofError = evalResultsInstanceofError.indexOf(true) !== -1;
     if (evalResultsHasInstanceofError)
         return 1;
     return 0;
@@ -87,13 +87,10 @@ var getPackage = main.getPackage = function (packagePath) {
         .catch(function () { return false; });
 };
 var previousIndex = main.previousIndex = function (node, nodes, fn) {
-    var index = indexOf(nodes, node);
+    var index = nodes.indexOf(node);
     index = index < 0 ? 0 : index;
-    var subArr = slice(nodes, 0, index);
-    var revIndex = chain(subArr)
-        .reverse()
-        .findIndex(fn)
-        .value();
+    var subArr = nodes.slice(0, index);
+    var revIndex = subArr.reverse().findIndex(fn);
     if (revIndex < 0)
         return 0;
     return subArr.length - revIndex;
@@ -116,7 +113,7 @@ var groupChildren = main.groupChildren = function (nodes) {
 };
 /** searches preceeding nodes for pattern */
 var searchLink = main.searchLink = function (subNodes, pattern) {
-    var textNode = find(subNodes, function (node) {
+    var textNode = subNodes.find(function (node) {
         if (!node.content)
             return false;
         return node.content.match(pattern);
@@ -153,7 +150,7 @@ var createLineDoc = main.createLineDoc = function (lines) {
 var replaceLines = main.replaceLines = function (start, main, sub) {
     main = (Array.isArray(main)) ? main : main.split('\n');
     sub = (Array.isArray(sub)) ? sub : sub.split('\n');
-    var output = flatten([slice(main, 0, start), sub, slice(main, start + sub.length, main.length)]);
+    var output = flatten([main.slice(0, start), sub, main.slice(start + sub.length, main.length)]);
     return output;
 };
 var getHash = main.getHash = function (content) {
@@ -161,10 +158,10 @@ var getHash = main.getHash = function (content) {
     return shasum.update(content).digest('hex');
 };
 var mapNodes = main.mapNodes = function (nodes) {
-    return map(nodes, function (node, index) {
+    return nodes.map(function (node, index) {
         node.children = groupChildren(node.children);
         node.previousFenceIndex = previousIndexType(node, nodes, 'fence');
-        var subNodes = slice(nodes, node.previousFenceIndex, index);
+        var subNodes = nodes.slice(node.previousFenceIndex, index);
         node.fileEval = searchLink(subNodes, /\[(.+)?\]\(#?(eval\s?file|file\s?eval)\)/i) ||
             searchComment(node, /\/\/\s(file\s?eval\s|eval\s?file\s)(.+)/i) ||
             false;
@@ -177,31 +174,31 @@ var mapNodes = main.mapNodes = function (nodes) {
     });
 };
 var getNodeId = main.getNodeId = function (nodes, filePath) {
-    return map(nodes, function (node, index) {
+    return nodes.map(function (node, index) {
         node.id = index + 1;
         return node;
     });
 };
 var getFences = main.getFences = function (nodes, langs) {
-    return filter(nodes, function (node) {
+    return nodes.filter(function (node) {
         if (node.type !== 'fence')
             return false;
         if (!langs && node.type === 'fence')
             return true;
         // commonmark trims the info string and takes its first word as the language
         var lang = String(node.info || '').trim().split(/\s+/)[0];
-        return includes(langs, lang);
+        return langs.indexOf(lang) !== -1;
     });
 };
 var filterPrevented = main.filterPrevented = function (nodes) {
-    return filter(nodes, function (node) {
+    return nodes.filter(function (node) {
         return !node.preventEval;
     });
 };
 var buildPreserveLines = main.buildPreserveLines = function (node$, lines) {
     var nodes = flatten([node$]);
     var lineDoc = createLineDoc(lines);
-    each(nodes, function (node) {
+    nodes.forEach(function (node) {
         var contentLines = String(node.content || '').split(/\r\n?|\n/);
         lineDoc = replaceLines(node.startLine, lineDoc, contentLines);
     });
@@ -209,11 +206,10 @@ var buildPreserveLines = main.buildPreserveLines = function (node$, lines) {
 };
 var buildConcat = main.buildConcat = function (node$, lines) {
     var nodes = flatten([node$]);
-    return chain(nodes)
+    return nodes
         .map(function (node) {
         return node.content;
     })
-        .value()
         .join('');
 };
 var getDeps = main.getDeps = function (code) {
@@ -221,14 +217,7 @@ var getDeps = main.getDeps = function (code) {
     var deps = umd(ast, {
         es6: true, amd: true, cjs: true
     });
-    return uniq(deps, function (dep) {
-        var important = {
-            'value': dep.source.value,
-            'start': dep.source.start,
-            'end': dep.source.end
-        };
-        return JSON.stringify(important);
-    });
+    return Array.from(new Set(deps));
 };
 var replacePosition = main.replacePosition = function (str, start, end, value) {
     return str.substr(0, start) + value + str.substr(end);
@@ -247,7 +236,7 @@ var alterAssignedModule = main.alterAssignedModule = function (code, prepend, pk
     var chars = 0;
     name = regExpEscape(name);
     var pattern = new RegExp('^' + name + '($|/.*)');
-    each(deps, function (dep) {
+    deps.forEach(function (dep) {
         var match = dep.source.value.match(pattern);
         if (match) {
             var start = chars + dep.source.start + 1;
@@ -265,10 +254,10 @@ var alterSelfModules = main.alterSelfModules = function (code, nodes) {
     if (!deps.length)
         return code;
     var chars = 0;
-    each(deps, function (dep) {
+    deps.forEach(function (dep) {
         if (dep.source.value) {
-            var node = find(nodes, {
-                'fileEval': dep.source.value
+            var node = nodes.find(function (node) {
+                return node.fileEval === dep.source.value;
             });
             if (node && node.fileCreated) {
                 var start = chars + dep.source.start + 1;
@@ -288,10 +277,10 @@ var alterPrependModules = main.alterPrependModules = function (code, nodes, prep
     prepend = (prepend) ? prepend : './';
     var localRegex = /^.\.\/|^.\//;
     var chars = 0;
-    each(deps, function (dep) {
+    deps.forEach(function (dep) {
         if (dep.source.value && dep.source.value.match(localRegex)) {
-            var node = find(nodes, {
-                'fileEval': dep.source.value
+            var node = nodes.find(function (node) {
+                return node.fileEval === dep.source.value;
             });
             if (!node) {
                 var start = chars + dep.source.start + 1;
@@ -312,8 +301,8 @@ var alterNpmModules = main.alterNpmModules = function (code, nodes, prepend) {
     prepend = (prepend) ? prepend : './';
     var nonNpm = /^.\.\/|^.\/|^\//;
     var chars = 0;
-    each(deps, function (dep) {
-        if (dep.source.value && !dep.source.value.match(nonNpm) && !includes(natives, dep.source.value)) {
+    deps.forEach(function (dep) {
+        if (dep.source.value && !dep.source.value.match(nonNpm) && natives.indexOf(dep.source.value) === -1) {
             var start = chars + dep.source.start + 1;
             var end = chars + dep.source.end - 1;
             var replacement = path.resolve(path.join(prepend, 'node_modules', dep.source.value));
@@ -347,7 +336,7 @@ var stackSplit = main.stackSplit = function (stack) {
         'frame': [],
         'lines': []
     };
-    each(stackLines, function (stackLine) {
+    stackLines.forEach(function (stackLine) {
         var pattern = /^\s\s\s\sat\s/;
         var match = stackLine.match(pattern);
         if (match) {
@@ -367,12 +356,12 @@ var stackJoin = main.stackJoin = function (stack) {
     ].join('\n');
 };
 var findErrorNode = main.findErrorNode = function (nodes, line) {
-    return find(nodes, function (node) {
+    return nodes.find(function (node) {
         return node.startLine <= line && node.endLine >= line;
     });
 };
 var errMsg = main.errMsg = function () {
-    var args = values(arguments);
+    var args = Array.prototype.slice.call(arguments);
     if (args.length > 1)
         args[0] = chalk.magenta(args[0]);
     return [
@@ -381,7 +370,7 @@ var errMsg = main.errMsg = function () {
     ].concat(args).join(' ');
 };
 var infoMsg = main.infoMsg = function () {
-    var args = values(arguments);
+    var args = Array.prototype.slice.call(arguments);
     args[0] = chalk.magenta(args[0]);
     return [
         chalk.white('evalmd'),
@@ -389,7 +378,7 @@ var infoMsg = main.infoMsg = function () {
     ].concat(args).join(' ');
 };
 var debugMsg = main.debugMsg = function () {
-    var args = values(arguments);
+    var args = Array.prototype.slice.call(arguments);
     args[0] = chalk.magenta(args[0]);
     return [
         chalk.white('evalmd'),
@@ -407,16 +396,19 @@ var cleanStack = main.cleanStack = function (errOrStack) {
 };
 var logErr = main.logErr = function (err) {
     var lines = cleanStack(err);
-    return each(lines, function (line) {
-        return log(errMsg(line));
-    });
+    if (lines) {
+        lines.forEach(function (line) {
+            return log(errMsg(line));
+        });
+    }
+    return lines;
 };
 var logInfo = main.logInfo = function () {
-    var args = values(arguments);
+    var args = Array.prototype.slice.call(arguments);
     return log(infoMsg.apply(null, args));
 };
 var logDebug = main.logDebug = function () {
-    var args = values(arguments);
+    var args = Array.prototype.slice.call(arguments);
     if (DEBUG)
         return log(debugMsg.apply(null, args));
 };
@@ -467,9 +459,9 @@ var parseLineChar = main.parseLineChar = function (s) {
     return false;
 };
 var getCleanLines = main.getCleanLines = function (incLines, nodes, absFilePath, frame) {
-    var lines = map(incLines, function (line) {
+    var lines = incLines.map(function (line) {
         var lineChar = parseLineChar(line);
-        var matchNodes = find(nodes, function (node) {
+        var matchNodes = nodes.find(function (node) {
             if (!node.fileEvalHashPath)
                 return false;
             return line.match(node.fileEvalHashPath);
@@ -513,13 +505,13 @@ var getCleanLines = main.getCleanLines = function (incLines, nodes, absFilePath,
     lines = lines.reverse();
     var matchFound = false;
     if (!frame) {
-        lines = filter(lines, function (line) {
+        lines = lines.filter(function (line) {
             if (line.replacement)
                 matchFound = true;
             return matchFound;
         });
     }
-    lines = map(lines, function (line) {
+    lines = lines.map(function (line) {
         if (line.replacement)
             return line.replacement;
         return line.line;
@@ -537,7 +529,7 @@ var evalError = main.evalError = function (filePath, nodes) {
             stack.lines = cleanLines;
         stack.frame = getCleanLines(stack.frame, nodes, absFilePath, true);
         stack.frame.shift();
-        if (last(stack.frame) === '')
+        if (stack.frame[stack.frame.length - 1] === '')
             stack.frame.pop();
         return stackJoin(stack);
     };
@@ -577,7 +569,7 @@ var nonstopErr = main.nonstopErr = function (error, stackWrapper, nonstop) {
 var evaluate = main.evaluate = function (node, nodes, markdownLinesLength, pkg, prepend, nonstop, filePath) {
     return promiseRipple(node, {
         notice: function (node) {
-            var ids = (Array.isArray(node)) ? chain(node).map('id').value() : [node.id];
+            var ids = (Array.isArray(node)) ? node.map(function (n) { return n.id; }) : [node.id];
             var word = (ids.length > 1) ? 'blocks' : 'block';
             logInfo(filePath, ['running', word, ids.join(', ')].join(' '));
         },
@@ -639,7 +631,7 @@ var evaluateScope = main.evaluateScope = function (nodes, markdownLinesLength, p
 var outputCode = main.outputCode = function (node, nodes, markdownLinesLength, pkg, prepend, nonstop, filePath, output, delimeter) {
     return promiseRipple(node, {
         notice: function (node) {
-            var ids = (Array.isArray(node)) ? chain(node).map('id').value() : [node.id];
+            var ids = (Array.isArray(node)) ? node.map(function (n) { return n.id; }) : [node.id];
             var word = (ids.length > 1) ? 'blocks' : 'block';
             logInfo(filePath, ['outputting', word, ids.join(', ')].join(' '));
         },
@@ -702,7 +694,7 @@ var assemble = main.assemble = function (filePath, pkg, prepend, blockScope, non
             // eval nodes
             data.evalNodes = (includePrevented) ? data.allJsFences : data.permittedFences;
             // get the blockscope
-            data.blockScope = blockScope || Boolean(chain(data.evalNodes).map('fileEval').without(false).value().length);
+            data.blockScope = blockScope || Boolean(data.evalNodes.map(function (node) { return node.fileEval; }).filter(function (fileEval) { return fileEval !== false; }).length);
             return data;
         },
         evaluated: function (data) {
