@@ -2,3 +2,8 @@ npm-debug.log
 node_modules
 .DS_Store
 yarn-error.log
+
+# Only apps should have lockfiles
+npm-shrinkwrap.json
+package-lock.json
+yarn.lock
