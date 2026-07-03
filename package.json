@@ -37,7 +37,6 @@
   },
   "devDependencies": {
     "@types/node": "^13.7.0",
-    "aud": "^1.0.0",
     "qs": "^6.9.1",
     "qs-iconv": "^1.0.4",
     "ts-node": "^7.0.1",
@@ -52,7 +51,7 @@
     "build": "tsc",
     "tests-only": "npm run test-node && npm run test-tsnode",
     "test": "npm run tests-only",
-    "posttest": "aud",
+    "posttest": "npx npm@\">= 10.2\" audit --production",
     "test-node": "node ./dist/script.js ./test-readmes/qs.md",
     "test-tsnode": "ts-node ./src/script.ts ./test-readmes/qs.md"
   },
