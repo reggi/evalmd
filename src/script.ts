@@ -46,10 +46,10 @@ var argv = yargs
   .default('path', './')
   .describe('package', 'Th path of a package.json')
   .default('package', './package.json')
-  .version(function () {
+  .version((function () {
     var pkg = fs.readFileSync(path.join(__dirname, '../package.json'), 'utf8')
     return JSON.parse(pkg).version
-  })
+  }()))
   .wrap(null)
   .argv
 
@@ -77,5 +77,5 @@ if (files.length) {
   })
 
 } else {
-  console.log(yargs.help())
+  yargs.showHelp('log')
 }
