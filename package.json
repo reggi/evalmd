@@ -50,6 +50,7 @@
   },
   "scripts": {
     "build": "tsc",
+    "prepack": "npm run build",
     "tests-only": "npm run test-node && npm run test-tsnode",
     "test": "npm run tests-only",
     "posttest": "npx npm@\">= 10.2\" audit --production",
