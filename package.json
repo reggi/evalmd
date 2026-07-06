@@ -26,6 +26,7 @@
     "es-lookup-scope": "^1.0.1",
     "estraverse": "^4.3.0",
     "fs-extra": "reggi/node-fs-extra#enhanced",
+    "is-core-module": "^2.16.2",
     "lodash": "^4.17.15",
     "markdown-it": "^5.1.0",
     "object.assign": "^4.1.0",

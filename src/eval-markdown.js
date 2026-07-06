@@ -12,6 +12,7 @@ var promiseRipple = require('./promise-ripple')
 var promiseSeries = require('./promise-series')
 // var _eval = require('eval')
 var chalk = require('chalk')
+var isCore = require('is-core-module')
 var temp = path.join(osTmpDir(), 'evalmd')
 
 var fs = {
@@ -312,14 +313,13 @@ var alterPrependModules = main.alterPrependModules = function (code, nodes, prep
 }
 
 var alterNpmModules = main.alterNpmModules = function (code, nodes, prepend) {
-  var natives = Object.keys(process.binding('natives'))
   var deps = getDeps(code)
   if (!deps.length) return code
   prepend = (prepend) ? prepend : './'
   var nonNpm = /^.\.\/|^.\/|^\//
   var chars = 0
   deps.forEach(function (dep) {
-    if (dep.source.value && !dep.source.value.match(nonNpm) && natives.indexOf(dep.source.value) === -1) {
+    if (dep.source.value && !dep.source.value.match(nonNpm) && !isCore(dep.source.value)) {
       var start = chars + dep.source.start + 1
       var end = chars + dep.source.end - 1
       var replacement = path.resolve(path.join(prepend, 'node_modules', dep.source.value))
