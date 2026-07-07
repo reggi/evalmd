@@ -54,6 +54,7 @@
     "pretests-only": "npm run build",
     "tests-only": "npm run test-node",
     "posttests-only": "npm run test-tsnode",
+    "pretest": "echo 'no linting yet'",
     "test": "npm run tests-only",
     "posttest": "npx npm@\">= 10.2\" audit --production",
     "test-node": "node ./dist/script.js ./test-readmes/qs.md ./test-readmes/fence-spaces.md",
