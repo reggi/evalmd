@@ -1,6 +1,6 @@
 # `evalmd`
 
-[![Build Status](https://travis-ci.org/reggi/evalmd.svg?branch=master)](https://travis-ci.org/reggi/evalmd) [![js-standard-style](https://img.shields.io/badge/code%20style-standard-brightgreen.svg?style=flat)](https://github.com/feross/standard)
+[![github actions](https://img.shields.io/github/check-runs/reggi/evalmd/master)](https://github.com/reggi/evalmd/actions) [![js-standard-style](https://img.shields.io/badge/code%20style-standard-brightgreen.svg?style=flat)](https://github.com/feross/standard)
 
 Write javascript in your markdown & execute it. I wanted a way of making sure the javscript that I write in markdown was valid and worked, not only for my own sake, but to ensure the examples and code provided was valid for others to reliably refer to.
 
