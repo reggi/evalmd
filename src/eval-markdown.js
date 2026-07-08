@@ -1,122 +1,62 @@
-var osTmpDir = require('os-tmpdir')
-var crypto = require('crypto')
-var path = require('path')
-var child_process = require('child_process')
-var { flatten, groupBy, range, values } = require('lodash')
-var promisify = require('util.promisify')
-var nodeFs = require('fs')
-var mkdirp = require('mkdirp')
-var MarkdownIt = require('markdown-it')
-var acorn = require('acorn')
-var umd = require('./acorn-umd/acorn-umd').default
-var promiseRipple = require('./promise-ripple')
-var promiseSeries = require('./promise-series')
-var resolveParse = require('./eslint-parse')
-// var _eval = require('eval')
-var chalk = require('chalk')
-var isCore = require('is-core-module')
-var temp = path.join(osTmpDir(), 'evalmd')
+'use strict';
 
-var fs = {
+const osTmpDir = require('os-tmpdir');
+const crypto = require('crypto');
+const path = require('path');
+const childProcess = require('child_process');
+const {
+  flatten, groupBy, range, values,
+} = require('lodash');
+const promisify = require('util.promisify');
+const nodeFs = require('fs');
+const mkdirp = require('mkdirp');
+const MarkdownIt = require('markdown-it');
+const acorn = require('acorn');
+const umd = require('./acorn-umd/acorn-umd').default;
+const promiseRipple = require('./promise-ripple');
+const promiseSeries = require('./promise-series');
+const resolveParse = require('./eslint-parse');
+// var _eval = require('eval')
+const chalk = require('chalk');
+const isCore = require('is-core-module');
+const temp = path.join(osTmpDir(), 'evalmd');
+
+const fs = {
   readFileAsync: promisify(nodeFs.readFile),
   mkdirsAsync: promisify(mkdirp),
   writeFileAsync: promisify(nodeFs.writeFile),
-  unlinkAsync: promisify(nodeFs.unlink)
-}
+  unlinkAsync: promisify(nodeFs.unlink),
+};
 
 /** @import { AssembleData, ConcatNode, Dep, EvalBuild, MdNode, Package, StackBuckets } from './types' */
 
 /** @type {false | ((data: string) => unknown)} */
-var log = false
-var DEBUG = false
-var SLOPPY = false
+let log = false;
+let DEBUG = false;
+let SLOPPY = false;
 /** @type {((code: string) => any) | false} */
-var CURRENT_PARSE = false
-
-/**
- * :fishing_pole_and_fish: Evaluates javascript code blocks from markdown files.
- * @module evalmd
- * @package.keywords eval, evaulate, javascript, markdown, test
- * @package.preferGlobal
- * @package.bin.evalmd ./bin/eval-markdown.js
- * @package.bin.test-markdown ./bin/eval-markdown.js
- * @package.bin.eval-markdown ./bin/eval-markdown.js
- * @param {string | readonly string[]} filePath$
- * @param {string} packagePath
- * @param {string} prepend
- * @param {boolean} blockScope
- * @param {boolean} nonstop
- * @param {boolean} preventEval
- * @param {boolean} includePrevented
- * @param {boolean} silence
- * @param {boolean} debug
- * @param {string | boolean} output
- * @param {string | boolean} delimeter
- * @param {readonly string[]} evalLangs
- * @param {boolean} sloppy
- * @param {boolean} useEslint
- */
-
-function main (filePath$, packagePath, prepend, blockScope, nonstop, preventEval, includePrevented, silence, debug, output, delimeter, evalLangs, sloppy, useEslint) {
-  /** @type {string[]} */
-  var logStore = []
-  evalLangs = (evalLangs && evalLangs.length) ? evalLangs : ['js']
-  DEBUG = debug
-  SLOPPY = sloppy
-  log = logFactory(logStore, silence)
-  var filePaths = flatten([filePath$])
-  logInfo('it worked if it ends with', 'ok')
-  return getPackage(packagePath)
-  .then(function (pkg) {
-    return Promise.all(filePaths.map(function (filePath) {
-      return assemble(filePath, pkg, prepend, blockScope, nonstop, preventEval, includePrevented, output, delimeter, evalLangs, useEslint)
-    }))
-  })
-  .then(function (mdResults) {
-    // console.log(mdResults)
-    var exitCode = getExitCode(mdResults)
-    if (exitCode === 0) logInfo('ok')
-    logDebug('exit code', exitCode)
-    return {
-      dataSets: mdResults,
-      exitCode: exitCode,
-      log: logStore
-    }
-  })
-  .catch(function (error) {
-    logErr(error)
-    var exitCode = 1
-    logDebug('exit code', exitCode)
-    return {
-      dataSets: null,
-      exitCode: 1,
-      log: null
-    }
-  })
-}
+let CURRENT_PARSE = false;
 
 /** @param {readonly AssembleData[]} mdResults */
 function getExitCode(mdResults) {
-  var evaluations = flatten(mdResults.map(function (mdResult) { return mdResult.evaluated || [] }))
-  var evalResults = flatten(evaluations.map(function (evaluation) { return evaluation.evalResult }))
-  var evalResultsInstanceofError = evalResults.map(function (evalResult) {
-    return evalResult instanceof Error
-  })
-  var evalResultsHasInstanceofError = evalResultsInstanceofError.indexOf(true) !== -1
-  if (evalResultsHasInstanceofError) return 1
-  return 0
+  const evaluations = flatten(mdResults.map((mdResult) => mdResult.evaluated || []));
+  const evalResults = flatten(evaluations.map((evaluation) => evaluation.evalResult));
+  const evalResultsInstanceofError = evalResults.map((evalResult) => evalResult instanceof Error);
+  const evalResultsHasInstanceofError = evalResultsInstanceofError.indexOf(true) !== -1;
+  if (evalResultsHasInstanceofError) { return 1; }
+  return 0;
 }
 
 /** @param {string} [packagePath] */
 function getPackage(packagePath) {
-  packagePath = (packagePath) ? packagePath : './package.json'
+  packagePath = (packagePath) ? packagePath : './package.json';
   return fs.readFileAsync(packagePath, 'utf8')
-  .then(JSON.parse)
-  .then(function (pkg) {
-    pkg.path = packagePath
-    return pkg
-  })
-  .catch(function () { return false })
+    .then(JSON.parse)
+    .then((pkg) => {
+      pkg.path = packagePath;
+      return pkg;
+    })
+    .catch(() => false);
 }
 
 /**
@@ -125,12 +65,12 @@ function getPackage(packagePath) {
  * @param {(node: MdNode) => unknown} fn
  */
 function previousIndex(node, nodes, fn) {
-  var index = nodes.indexOf(node)
-  index = index < 0 ? 0 : index
-  var subArr = nodes.slice(0, index)
-  var revIndex = subArr.reverse().findIndex(fn)
-  if (revIndex < 0) return 0
-  return subArr.length - revIndex
+  let index = nodes.indexOf(node);
+  index = index < 0 ? 0 : index;
+  const subArr = nodes.slice(0, index);
+  const revIndex = subArr.reverse().findIndex(fn);
+  if (revIndex < 0) { return 0; }
+  return subArr.length - revIndex;
 }
 
 /**
@@ -139,9 +79,7 @@ function previousIndex(node, nodes, fn) {
  * @param {string} type
  */
 function previousIndexType(node, nodes, type) {
-  return previousIndex(node, nodes, function (node) {
-    return node.type === type
-  })
+  return previousIndex(node, nodes, (node) => node.type === type);
 }
 
 /**
@@ -149,17 +87,13 @@ function previousIndexType(node, nodes, type) {
  * @param {readonly MdNode[]} nodes
  */
 function previousIndexClose(node, nodes) {
-  return previousIndex(node, nodes, function (node) {
-    return node.type && node.type.match(/\_close$/)
-  })
+  return previousIndex(node, nodes, (node) => node.type && node.type.match(/_close$/));
 }
 
 /** @param {readonly MdNode[]} nodes */
 function groupChildren(nodes) {
-  const grouped = groupBy(nodes, function (node) {
-    return previousIndexClose(node, nodes)
-  })
-  return values(grouped)
+  const grouped = groupBy(nodes, (node) => previousIndexClose(node, nodes));
+  return values(grouped);
 }
 
 /**
@@ -168,17 +102,16 @@ function groupChildren(nodes) {
  * @param {RegExp} pattern
  */
 function searchLink(subNodes, pattern) {
-  var textNode = subNodes.find(function (node) {
-    if (!node.content) return false
-    return node.content.match(pattern)
-  })
+  const textNode = subNodes.find((node) => {
+    if (!node.content) { return false; }
+    return node.content.match(pattern);
+  });
   if (textNode) {
-    var match = String(textNode.content || '').match(pattern)
-    if (match && match[1]) return match[1]
-    if (match) return true
-  } else {
-    return false
+    const match = String(textNode.content || '').match(pattern);
+    if (match && match[1]) { return match[1]; }
+    if (match) { return true; }
   }
+  return false;
 }
 
 /**
@@ -186,22 +119,20 @@ function searchLink(subNodes, pattern) {
  * @param {RegExp} pattern
  */
 function searchComment(node, pattern) {
-  var commentMatch = String(node.content || '').match(pattern)
+  const commentMatch = String(node.content || '').match(pattern);
   // if there's a first-line comment match return the value
   if (commentMatch && commentMatch[2]) {
-    return commentMatch[2]
+    return commentMatch[2];
   } else if (commentMatch) {
-    return true
-  } else {
-    return false
+    return true;
   }
+  return false;
+
 }
 
 /** @param {number} lines */
 function createLineDoc(lines) {
-  return range(lines).map(function () {
-    return ''
-  })
+  return range(lines).map(() => '');
 }
 
 /**
@@ -210,47 +141,49 @@ function createLineDoc(lines) {
  * @param {string | string[]} sub
  */
 function replaceLines(start, main, sub) {
-  main = Array.isArray(main) ? main : main.split('\n')
-  sub = Array.isArray(sub) ? sub : sub.split('\n')
-  var output = flatten([main.slice(0, start || 0), sub, main.slice((start || 0) + sub.length, main.length)])
-  return output
+  main = Array.isArray(main) ? main : main.split('\n');
+  sub = Array.isArray(sub) ? sub : sub.split('\n');
+  const output = flatten([
+    main.slice(0, start || 0), sub, main.slice((start || 0) + sub.length, main.length),
+  ]);
+  return output;
 }
 
 /** @param {string} content */
 function getHash(content) {
-  var shasum = crypto.createHash('md5')
-  return shasum.update(content).digest('hex')
+  const shasum = crypto.createHash('md5');
+  return shasum.update(content).digest('hex');
 }
 
 /** @param {readonly MdNode[]} nodes */
 function mapNodes(nodes) {
-  return nodes.map(function (node, index) {
+  return nodes.map((node, index) => {
     // node.children = groupChildren(node.children)
-    node.previousFenceIndex = previousIndexType(node, nodes, 'fence')
+    node.previousFenceIndex = previousIndexType(node, nodes, 'fence');
 
-    var subNodes = nodes.slice(node.previousFenceIndex, index)
+    const subNodes = nodes.slice(node.previousFenceIndex, index);
 
-    node.fileEval = searchLink(subNodes, /\[(.+)?\]\(#?(eval\s?file|file\s?eval)\)/i) ||
-      searchComment(node, /\/\/\s(file\s?eval\s|eval\s?file\s)(.+)/i) ||
-      false
+    node.fileEval = searchLink(subNodes, /\[(.+)?\]\(#?(eval\s?file|file\s?eval)\)/i)
+      || searchComment(node, /\/\/\s(file\s?eval\s|eval\s?file\s)(.+)/i)
+      || false;
 
-    node.preventEval = Boolean(searchLink(subNodes, /\[(.+)?\]\(#?(eval\s?prevent|prevent\s?eval)\)/i)) ||
-      Boolean(searchComment(node, /\/\/\s(prevent\s?eval\s|eval\s?prevent\s)(.+)/i)) ||
-      false
+    node.preventEval = Boolean(searchLink(subNodes, /\[(.+)?\]\(#?(eval\s?prevent|prevent\s?eval)\)/i))
+      || Boolean(searchComment(node, /\/\/\s(prevent\s?eval\s|eval\s?prevent\s)(.+)/i))
+      || false;
 
-    node.startLine = (node.map) ? node.map[0] + 1 : false
-    node.endLine = (node.map) ? node.map[1] - 1 : false
+    node.startLine = (node.map) ? node.map[0] + 1 : false;
+    node.endLine = (node.map) ? node.map[1] - 1 : false;
 
-    return node
-  })
+    return node;
+  });
 }
 
 /** @param {readonly MdNode[]} nodes */
 function getNodeId(nodes) {
-  return nodes.map(function (node, index) {
-    node.id = index + 1
-    return node
-  })
+  return nodes.map((node, index) => {
+    node.id = index + 1;
+    return node;
+  });
 }
 
 /**
@@ -258,20 +191,18 @@ function getNodeId(nodes) {
  * @param {string[]} langs
  */
 function getFences(nodes, langs) {
-  return nodes.filter(function (node) {
-    if (node.type !== 'fence') return false
-    if (!langs && node.type === 'fence') return true
+  return nodes.filter((node) => {
+    if (node.type !== 'fence') { return false; }
+    if (!langs && node.type === 'fence') { return true; }
     // commonmark trims the info string and takes its first word as the language
-    var lang = String(node.info || '').trim().split(/\s+/)[0]
-    return langs.indexOf(lang) !== -1
-  })
+    const lang = String(node.info || '').trim().split(/\s+/)[0];
+    return langs.indexOf(lang) !== -1;
+  });
 }
 
 /** @param {readonly MdNode[]} nodes */
 function filterPrevented(nodes) {
-  return nodes.filter(function (node) {
-    return !node.preventEval
-  })
+  return nodes.filter((node) => !node.preventEval);
 }
 
 /**
@@ -279,23 +210,21 @@ function filterPrevented(nodes) {
  * @param {number} lines
  */
 function buildPreserveLines(node$, lines) {
-  var nodes = flatten([node$])
-  var lineDoc = createLineDoc(lines)
-  nodes.forEach(function (node) {
-    var contentLines = String(node.content || '').split(/\r\n?|\n/)
-    lineDoc = replaceLines(node.startLine, lineDoc, contentLines)
-  })
-  return lineDoc.join('\n')
+  const nodes = flatten([node$]);
+  let lineDoc = createLineDoc(lines);
+  nodes.forEach((node) => {
+    const contentLines = String(node.content || '').split(/\r\n?|\n/);
+    lineDoc = replaceLines(node.startLine, lineDoc, contentLines);
+  });
+  return lineDoc.join('\n');
 }
 
 /** @param {MdNode | readonly MdNode[]} node$ */
 function buildConcat(node$) {
-  var nodes = flatten([node$])
+  const nodes = flatten([node$]);
   return nodes
-  .map(function (node) {
-    return node.content
-  })
-  .join('')
+    .map((node) => node.content)
+    .join('');
 }
 
 /**
@@ -303,20 +232,21 @@ function buildConcat(node$) {
  * @returns {readonly Dep[]}
  */
 function getDeps(code) {
-  var ast = CURRENT_PARSE ? CURRENT_PARSE(code) : acorn.parse(code, {sourceType: SLOPPY ? 'script' : 'module', ecmaVersion: 6})
-  var deps = umd(ast, {
-    es6: true, amd: true, cjs: true
-  })
-  return Array.from(new Set(deps)).map(function (dep) {
-    var source = dep.source
+  // eslint-disable-next-line new-cap
+  const ast = CURRENT_PARSE ? CURRENT_PARSE(code) : acorn.parse(code, { sourceType: SLOPPY ? 'script' : 'module', ecmaVersion: 6 });
+  const deps = umd(ast, {
+    es6: true, amd: true, cjs: true,
+  });
+  return Array.from(new Set(deps)).map((dep) => {
+    const source = dep.source;
     return {
       source: {
         value: String(source && 'value' in source ? source.value : ''),
         start: source ? source.start : 0,
-        end: source ? source.end : 0
-      }
-    }
-  })
+        end: source ? source.end : 0,
+      },
+    };
+  });
 }
 
 /**
@@ -326,17 +256,17 @@ function getDeps(code) {
  * @param {string} value
  */
 function replacePosition(str, start, end, value) {
-  return str.substr(0, start) + value + str.substr(end)
+  return str.substr(0, start) + value + str.substr(end);
 }
 
 /** @param {string} replacement */
 function toRequirePath(replacement) {
-  return replacement.split(path.sep).join('/')
+  return replacement.split(path.sep).join('/');
 }
 
 /** @param {string} s */
 function regExpEscape(s) {
-  return s.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')
+  return s.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
 }
 
 /**
@@ -345,25 +275,25 @@ function regExpEscape(s) {
  * @param {Package | false} pkg
  */
 function alterAssignedModule(code, _prepend, pkg) {
-  if (!pkg) return code
-  var deps = getDeps(code)
-  if (!deps.length) return code
-  var name = pkg.name
-  var chars = 0
-  name = regExpEscape(name)
-  var pattern = new RegExp('^' + name + '($|/.*)')
-  deps.forEach(function (dep) {
-    var match = dep.source.value.match(pattern)
+  if (!pkg) { return code; }
+  const deps = getDeps(code);
+  if (!deps.length) { return code; }
+  let name = pkg.name;
+  let chars = 0;
+  name = regExpEscape(name);
+  const pattern = new RegExp(`^${name}($|/.*)`);
+  deps.forEach((dep) => {
+    const match = dep.source.value.match(pattern);
     if (match) {
-      var start = chars + dep.source.start + 1
-      var end = chars + dep.source.end - 1
-      var absModule = path.dirname(path.resolve(pkg.path))
-      var replacement = toRequirePath(match[1] ? path.join(absModule, match[1]) : absModule)
-      code = replacePosition(code, start, end, replacement)
-      chars += replacement.length - dep.source.value.length
+      const start = chars + dep.source.start + 1;
+      const end = chars + dep.source.end - 1;
+      const absModule = path.dirname(path.resolve(pkg.path));
+      const replacement = toRequirePath(match[1] ? path.join(absModule, match[1]) : absModule);
+      code = replacePosition(code, start, end, replacement);
+      chars += replacement.length - dep.source.value.length;
     }
-  })
-  return code
+  });
+  return code;
 }
 
 /**
@@ -371,24 +301,22 @@ function alterAssignedModule(code, _prepend, pkg) {
  * @param {readonly MdNode[]} nodes
  */
 function alterSelfModules(code, nodes) {
-  var deps = getDeps(code)
-  if (!deps.length) return code
-  var chars = 0
-  deps.forEach(function (dep) {
+  const deps = getDeps(code);
+  if (!deps.length) { return code; }
+  let chars = 0;
+  deps.forEach((dep) => {
     if (dep.source.value) {
-      var node = nodes.find(function (node) {
-        return node.fileEval === dep.source.value
-      })
+      const node = nodes.find((node) => node.fileEval === dep.source.value);
       if (node && node.fileCreated) {
-        var start = chars + dep.source.start + 1
-        var end = chars + dep.source.end - 1
-        var replacement = toRequirePath(node.fileEvalHashPath)
-        code = replacePosition(code, start, end, replacement)
-        chars += replacement.length - dep.source.value.length
+        const start = chars + dep.source.start + 1;
+        const end = chars + dep.source.end - 1;
+        const replacement = toRequirePath(node.fileEvalHashPath);
+        code = replacePosition(code, start, end, replacement);
+        chars += replacement.length - dep.source.value.length;
       }
     }
-  })
-  return code
+  });
+  return code;
 }
 
 /**
@@ -397,26 +325,24 @@ function alterSelfModules(code, nodes) {
  * @param {string} prepend
  */
 function alterPrependModules(code, nodes, prepend) {
-  var deps = getDeps(code)
-  if (!deps.length) return code
-  prepend = (prepend) ? prepend : './'
-  var localRegex = /^.\.\/|^.\//
-  var chars = 0
-  deps.forEach(function (dep) {
+  const deps = getDeps(code);
+  if (!deps.length) { return code; }
+  prepend = (prepend) ? prepend : './';
+  const localRegex = /^.\.\/|^.\//;
+  let chars = 0;
+  deps.forEach((dep) => {
     if (dep.source.value && dep.source.value.match(localRegex)) {
-      var node = nodes.find(function (node) {
-        return node.fileEval === dep.source.value
-      })
+      const node = nodes.find((node) => node.fileEval === dep.source.value);
       if (!node) {
-        var start = chars + dep.source.start + 1
-        var end = chars + dep.source.end - 1
-        var replacement = toRequirePath(path.resolve(path.join(prepend, dep.source.value)))
-        code = replacePosition(code, start, end, replacement)
-        chars += replacement.length - dep.source.value.length
+        const start = chars + dep.source.start + 1;
+        const end = chars + dep.source.end - 1;
+        const replacement = toRequirePath(path.resolve(path.join(prepend, dep.source.value)));
+        code = replacePosition(code, start, end, replacement);
+        chars += replacement.length - dep.source.value.length;
       }
     }
-  })
-  return code
+  });
+  return code;
 }
 
 /**
@@ -425,21 +351,21 @@ function alterPrependModules(code, nodes, prepend) {
  * @param {string} prepend
  */
 function alterNpmModules(code, _nodes, prepend) {
-  var deps = getDeps(code)
-  if (!deps.length) return code
-  prepend = (prepend) ? prepend : './'
-  var nonNpm = /^.\.\/|^.\/|^\//
-  var chars = 0
-  deps.forEach(function (dep) {
+  const deps = getDeps(code);
+  if (!deps.length) { return code; }
+  prepend = (prepend) ? prepend : './';
+  const nonNpm = /^.\.\/|^.\/|^\//;
+  let chars = 0;
+  deps.forEach((dep) => {
     if (dep.source.value && !dep.source.value.match(nonNpm) && !isCore(dep.source.value) && !path.isAbsolute(dep.source.value)) {
-      var start = chars + dep.source.start + 1
-      var end = chars + dep.source.end - 1
-      var replacement = toRequirePath(path.resolve(path.join(prepend, 'node_modules', dep.source.value)))
-      code = replacePosition(code, start, end, replacement)
-      chars += replacement.length - dep.source.value.length
+      const start = chars + dep.source.start + 1;
+      const end = chars + dep.source.end - 1;
+      const replacement = toRequirePath(path.resolve(path.join(prepend, 'node_modules', dep.source.value)));
+      code = replacePosition(code, start, end, replacement);
+      chars += replacement.length - dep.source.value.length;
     }
-  })
-  return code
+  });
+  return code;
 }
 
 /**
@@ -449,13 +375,15 @@ function alterNpmModules(code, _nodes, prepend) {
  * @param {string} prepend
  */
 function alterModules(code, nodes, pkg, prepend) {
-  // syntax errors will come through to here and
-  // get thrown by the acorn parser
-  code = alterAssignedModule(code, prepend, pkg)
-  code = alterSelfModules(code, nodes)
-  code = alterPrependModules(code, nodes, prepend)
-  code = alterNpmModules(code, nodes, prepend)
-  return code
+  /*
+   * syntax errors will come through to here and
+   * get thrown by the acorn parser
+   */
+  code = alterAssignedModule(code, prepend, pkg);
+  code = alterSelfModules(code, nodes);
+  code = alterPrependModules(code, nodes, prepend);
+  code = alterNpmModules(code, nodes, prepend);
+  return code;
 }
 
 /**
@@ -467,27 +395,27 @@ function alterModules(code, nodes, pkg, prepend) {
  * @returns {EvalBuild}
  */
 function buildEvalable(node, nodes, markdownLinesLength, pkg, prepend) {
-  var preserve = buildPreserveLines(node, markdownLinesLength)
-  var concat = buildConcat(node)
+  const preserve = buildPreserveLines(node, markdownLinesLength);
+  const concat = buildConcat(node);
   // if there is an error have preserve run first to return line number
-  var preserveAlter = alterModules(preserve, nodes, pkg, prepend)
-  var concatAlter = alterModules(concat, nodes, pkg, prepend)
+  const preserveAlter = alterModules(preserve, nodes, pkg, prepend);
+  const concatAlter = alterModules(concat, nodes, pkg, prepend);
   return {
-    preserve: preserve,
-    concat: concat,
-    preserveAlter: preserveAlter,
-    concatAlter: concatAlter
+    preserve,
+    concat,
+    preserveAlter,
+    concatAlter,
   };
 }
 
 /** @param {string} stack */
 function stackSplit(stack) {
-  var pattern = /^\s\s\s\sat\s/
-  var stackLines = stack.split('\n')
+  const pattern = /^\s\s\s\sat\s/;
+  const stackLines = stack.split('\n');
   return {
-    frame: stackLines.filter(function (stackLine) { return !pattern.test(stackLine) }),
-    lines: stackLines.filter(function (stackLine) { return pattern.test(stackLine) })
-  }
+    frame: stackLines.filter((stackLine) => !pattern.test(stackLine)),
+    lines: stackLines.filter((stackLine) => pattern.test(stackLine)),
+  };
 }
 
 /**
@@ -497,8 +425,8 @@ function stackSplit(stack) {
 function stackJoin(stack) {
   return [
     stack.frame.join('\n'),
-    stack.lines.join('\n')
-  ].join('\n')
+    stack.lines.join('\n'),
+  ].join('\n');
 }
 
 /**
@@ -506,65 +434,62 @@ function stackJoin(stack) {
  * @param {number | undefined} line
  */
 function findErrorNode(nodes, line) {
-  return nodes.find(function (node) {
-    return Number(node.startLine) <= Number(line) && Number(node.endLine) >= Number(line)
-  })
+  return nodes.find((node) => Number(node.startLine) <= Number(line) && Number(node.endLine) >= Number(line));
 }
 
-function errMsg() {
-  var args = Array.prototype.slice.call(arguments)
-  if (args.length > 1) args[0] = chalk.magenta(args[0])
+/** @param {...any} args */
+function errMsg(...args) {
+  if (args.length > 1) { args[0] = chalk.magenta(args[0]); }
   return [
     chalk.white('evalmd'),
-    chalk.red('ERR!')
-  ].concat(args).join(' ')
+    chalk.red('ERR!'),
+  ].concat(args).join(' ');
 }
 
-function infoMsg() {
-  var args = Array.prototype.slice.call(arguments)
-  args[0] = chalk.magenta(args[0])
+/** @param {...any} args */
+function infoMsg(...args) {
+  args[0] = chalk.magenta(args[0]);
   return [
     chalk.white('evalmd'),
-    chalk.green('info')
-  ].concat(args).join(' ')
+    chalk.green('info'),
+  ].concat(args).join(' ');
 }
 
-function debugMsg() {
-  var args = Array.prototype.slice.call(arguments)
-  args[0] = chalk.magenta(args[0])
+/** @param {...any} args */
+function debugMsg(...args) {
+  args[0] = chalk.magenta(args[0]);
   return [
     chalk.white('evalmd'),
-    chalk.blue('debug')
-  ].concat(args).join(' ')
+    chalk.blue('debug'),
+  ].concat(args).join(' ');
 }
 
 /** @param {unknown} errOrStack */
 function cleanStack(errOrStack) {
-  if (errOrStack instanceof Error && errOrStack.stack) return String(errOrStack).split(/\r\n?|\n/)
-  if (Array.isArray(errOrStack)) return errOrStack
-  if (errOrStack) return String(errOrStack).split(/\r\n?|\n/)
-  return false
+  if (errOrStack instanceof Error && errOrStack.stack) { return String(errOrStack).split(/\r\n?|\n/); }
+  if (Array.isArray(errOrStack)) { return errOrStack; }
+  if (errOrStack) { return String(errOrStack).split(/\r\n?|\n/); }
+  return false;
 }
 
 /** @param {unknown} err */
 function logErr(err) {
-  var lines = cleanStack(err)
+  const lines = cleanStack(err);
   if (lines) {
-    lines.forEach(function (line) {
-      return log && log(errMsg(line))
-    })
+    lines.forEach((line) => log && log(errMsg(line)));
   }
-  return lines
+  return lines;
 }
 
-function logInfo() {
-  var args = Array.prototype.slice.call(arguments)
-  return log && log(infoMsg.apply(null, args))
+/** @param {...any} args */
+function logInfo(...args) {
+  return log && log(infoMsg.apply(null, args));
 }
 
-function logDebug() {
-  var args = Array.prototype.slice.call(arguments)
-  if (DEBUG) return log && log(debugMsg.apply(null, args))
+/** @param {...any} args */
+function logDebug(...args) {
+  if (DEBUG) { return log && log(debugMsg.apply(null, args)); }
+  return undefined;
 }
 
 /**
@@ -573,24 +498,25 @@ function logDebug() {
  */
 function logFactory(store, silence) {
   return /** @param {string} data */ function (data) {
-    var colorLessData = chalk.stripColor(data)
-    if (!store.all) store.all = []
-    store.push(colorLessData)
-    if (!silence) return process.stderr.write(data + '\n')
-  }
+    const colorLessData = chalk.stripColor(data);
+    if (!store.all) { store.all = []; }
+    store.push(colorLessData);
+    if (!silence) { return process.stderr.write(`${data}\n`); }
+    return undefined;
+  };
 }
 
 /**
  * @param {unknown} e
  * @returns {e is Error & { loc: { line: number, column: number } }}
  */
-var isAcornError = function (e) {
+const isAcornError = function (e) {
   return e instanceof Error
     && 'loc' in e
     && typeof e.loc === 'object' && e.loc !== null
     && 'line' in e.loc && typeof e.loc.line === 'number'
-    && 'column' in e.loc && typeof e.loc.column === 'number'
-}
+    && 'column' in e.loc && typeof e.loc.column === 'number';
+};
 
 /**
  * @param {readonly MdNode[]} nodes
@@ -598,40 +524,44 @@ var isAcornError = function (e) {
  */
 function acornError(nodes, filePath) {
   return /** @param {unknown} e */ function (e) {
-    if (!isAcornError(e) || !e.stack || !e.loc) return e
-    var stack = stackSplit(e.stack)
-    var lineChar = [e.loc.line, ':', e.loc.column].join('')
-    var errorNode = findErrorNode(nodes, e.loc.line)
-    var absFilePath = path.resolve(filePath)
-    var line = ['    at ', absFilePath, ':', lineChar, errorNode ? ' {block ' + errorNode.id + '}' : ''].join('')
-    stack.lines = [line]
-    return stackJoin(stack)
-  }
+    if (!isAcornError(e) || !e.stack || !e.loc) { return e; }
+    const stack = stackSplit(e.stack);
+    const lineChar = [
+      e.loc.line, ':', e.loc.column,
+    ].join('');
+    const errorNode = findErrorNode(nodes, e.loc.line);
+    const absFilePath = path.resolve(filePath);
+    const line = [
+      '    at ', absFilePath, ':', lineChar, errorNode ? ` {block ${errorNode.id}}` : '',
+    ].join('');
+    stack.lines = [line];
+    return stackJoin(stack);
+  };
 }
 
 /** @param {string | Error} s */
 function parseLineChar(s) {
-  var str = s instanceof Error ? s.message : s
-  var patternLineChar = /:(\d+):(\d+)/
-  var patternLine = /:(\d+)/
+  const str = s instanceof Error ? s.message : s;
+  const patternLineChar = /:(\d+):(\d+)/;
+  const patternLine = /:(\d+)/;
 
-  var matchLineChar = str.match(patternLineChar)
+  const matchLineChar = str.match(patternLineChar);
   if (matchLineChar) {
     return {
       lineChar: matchLineChar[0],
       line: parseInt(matchLineChar[1], 10),
-      char: parseInt(matchLineChar[2], 10)
-    }
+      char: parseInt(matchLineChar[2], 10),
+    };
   }
-  var matchLine = str.match(patternLine)
+  const matchLine = str.match(patternLine);
   if (matchLine) {
     return {
       lineChar: parseInt(matchLine[1], 10),
       line: parseInt(matchLine[1], 10),
-      char: false
-    }
+      char: false,
+    };
   }
-  return false
+  return false;
 }
 
 /**
@@ -641,54 +571,54 @@ function parseLineChar(s) {
  * @param {boolean} frame
  */
 function getCleanLines(incLines, nodes, absFilePath, frame) {
-  var lines = incLines.map(function (line) {
-    var lineChar = parseLineChar(line)
-    var matchNodes = nodes.find(function (node) {
-      if (!node.fileEvalHashPath) return false
-      return line.match(node.fileEvalHashPath)
-    })
-    var matchNode = (function () {
-      if (!nodes.fileEvalHashPath) return false
-      var match = line.match(nodes.fileEvalHashPath)
-      if (!match) return false
-      var errorNode = findErrorNode(nodes, lineChar ? lineChar.line : undefined)
+  let lines = incLines.map((line) => {
+    const lineChar = parseLineChar(line);
+    const matchNodes = nodes.find((node) => {
+      if (!node.fileEvalHashPath) { return false; }
+      return line.match(node.fileEvalHashPath);
+    });
+    const matchNode = (function () {
+      if (!nodes.fileEvalHashPath) { return false; }
+      const match = line.match(nodes.fileEvalHashPath);
+      if (!match) { return false; }
+      const errorNode = findErrorNode(nodes, lineChar ? lineChar.line : undefined);
       return {
         id: errorNode && errorNode.id ? errorNode.id : nodes.id,
         fileEval: nodes.fileEval,
       };
-    }())
-    var match = matchNodes || matchNode || false
+    }());
+    const match = matchNodes || matchNode || false;
 
     /** @type {string | false} */
-    var replacement = false
+    let replacement = false;
     if (match) {
-      replacement = ''
-      if (!frame) replacement += '    at '
-      replacement += absFilePath
-      if (lineChar && lineChar.line && lineChar.char) replacement += ':' + lineChar.line + ':' + lineChar.char
-      if (lineChar && lineChar.line && !lineChar.char) replacement += ':' + lineChar.line
-      if (match.id && !match.fileEval) replacement += ' {block ' + match.id + '}'
-      if (match.id && match.fileEval) replacement += ' {block ' + match.id + ' (' + match.fileEval + ')}'
+      replacement = '';
+      if (!frame) { replacement += '    at '; }
+      replacement += absFilePath;
+      if (lineChar && lineChar.line && lineChar.char) { replacement += `:${lineChar.line}:${lineChar.char}`; }
+      if (lineChar && lineChar.line && !lineChar.char) { replacement += `:${lineChar.line}`; }
+      if (match.id && !match.fileEval) { replacement += ` {block ${match.id}}`; }
+      if (match.id && match.fileEval) { replacement += ` {block ${match.id} (${match.fileEval})}`; }
     }
     return {
-      'line': line,
-      'replacement': replacement
-    }
-  })
+      line,
+      replacement,
+    };
+  });
   // console.log(lines)
-  lines = lines.reverse()
-  var matchFound = false
+  lines = lines.reverse();
+  let matchFound = false;
   if (!frame) {
-    lines = lines.filter(function (line) {
-      if (line.replacement) matchFound = true
-      return matchFound
-    })
+    lines = lines.filter((line) => {
+      if (line.replacement) { matchFound = true; }
+      return matchFound;
+    });
   }
-  var cleanLines = lines.map(function (line) {
-    if (typeof line.replacement === 'string') return line.replacement
-    return line.line
-  })
-  return cleanLines.reverse()
+  const cleanLines = lines.map((line) => {
+    if (typeof line.replacement === 'string') { return line.replacement; }
+    return line.line;
+  });
+  return cleanLines.reverse();
 }
 
 /**
@@ -697,31 +627,31 @@ function getCleanLines(incLines, nodes, absFilePath, frame) {
  */
 function evalError(filePath, nodes) {
   return /** @param {unknown} e */ function (e) {
-    if (!(e instanceof Error) || !e.stack) return e
-    var stack = stackSplit(e.stack)
-    var absFilePath = path.resolve(filePath)
-    var cleanLines = getCleanLines(stack.lines, nodes, absFilePath, false)
-    if (cleanLines.length !== 0) stack.lines = cleanLines
-    stack.frame = getCleanLines(stack.frame, nodes, absFilePath, true)
-    stack.frame.shift()
-    if (stack.frame[stack.frame.length - 1] === '') stack.frame.pop()
-    return stackJoin(stack)
-  }
+    if (!(e instanceof Error) || !e.stack) { return e; }
+    const stack = stackSplit(e.stack);
+    const absFilePath = path.resolve(filePath);
+    const cleanLines = getCleanLines(stack.lines, nodes, absFilePath, false);
+    if (cleanLines.length !== 0) { stack.lines = cleanLines; }
+    stack.frame = getCleanLines(stack.frame, nodes, absFilePath, true);
+    stack.frame.shift();
+    if (stack.frame[stack.frame.length - 1] === '') { stack.frame.pop(); }
+    return stackJoin(stack);
+  };
 }
 
 /** @param {string} file */
 function evalFileAsync(file) {
-  return new Promise(function (resolve, reject) {
-    var command = [process.execPath, file].join(' ')
-    return child_process.exec(command, function (error, stdout, stderr) {
-      if (stdout) process.stdout.write(stdout)
-      if (error) return reject(error)
+  return new Promise((resolve, reject) => {
+    const command = [process.execPath, file].join(' ');
+    childProcess.exec(command, (error, stdout, stderr) => {
+      if (stdout) { process.stdout.write(stdout); }
+      if (error) { return reject(error); }
       return resolve({
-        stdout: stdout,
-        stderr: stderr
-      })
-    })
-  })
+        stdout,
+        stderr,
+      });
+    });
+  });
 }
 
 /**
@@ -729,9 +659,9 @@ function evalFileAsync(file) {
  * @param {((e: unknown) => unknown) | undefined} [stackWrapper]
  */
 function getCleanErr(error, stackWrapper) {
-  if (stackWrapper) return stackWrapper(error)
-  if (error instanceof Error && error.stack) return error.stack
-  return error
+  if (stackWrapper) { return stackWrapper(error); }
+  if (error instanceof Error && error.stack) { return error.stack; }
+  return error;
 }
 
 /**
@@ -740,13 +670,13 @@ function getCleanErr(error, stackWrapper) {
  * @param {boolean} nonstop
  */
 function nonstopErr(error, stackWrapper, nonstop) {
-  var cleanErr = getCleanErr(error, stackWrapper)
+  const cleanErr = getCleanErr(error, stackWrapper);
   if (nonstop) {
-    logErr(cleanErr)
-    return error
-  } else {
-    throw cleanErr
+    logErr(cleanErr);
+    return error;
   }
+  throw cleanErr;
+
 }
 
 /**
@@ -770,54 +700,50 @@ function evaluate(
   filePath
 ) {
   return promiseRipple(node, {
-    notice: function (node) {
-      var ids = Array.isArray(node) ? node.map(function (n) { return n.id }) : [node.id]
-      var word = (ids.length > 1) ? 'blocks' : 'block'
-      logInfo(filePath, ['running', word, ids.join(', ')].join(' '))
+    notice(node) {
+      const ids = Array.isArray(node) ? node.map((n) => n.id) : [node.id];
+      const word = (ids.length > 1) ? 'blocks' : 'block';
+      logInfo(filePath, [
+        'running', word, ids.join(', '),
+      ].join(' '));
     },
-    evalCode: function (node) {
-      CURRENT_PARSE = (Array.isArray(node) ? (node[0] && node[0].parse) : node.parse) || false
-      var stackWrapper = acornError(nodes, filePath)
+    evalCode(node) {
+      CURRENT_PARSE = (Array.isArray(node) ? (node[0] && node[0].parse) : node.parse) || false;
+      const stackWrapper = acornError(nodes, filePath);
       try {
-        return buildEvalable(node, nodes, markdownLinesLength, pkg, prepend)
+        return buildEvalable(node, nodes, markdownLinesLength, pkg, prepend);
       } catch (error) {
-        return nonstopErr(error, stackWrapper, nonstop)
+        return nonstopErr(error, stackWrapper, nonstop);
       }
     },
-    fileName: function (node) {
-      var fileEvalHash = typeof node.fileEval === 'string' ? getHash(node.fileEval) : getHash(filePath + node.id)
+    fileName(node) {
+      const fileEvalHash = typeof node.fileEval === 'string' ? getHash(node.fileEval) : getHash(filePath + node.id);
       Object.assign(node, {
-        fileEvalHash: fileEvalHash,
-        fileEvalHashPath: path.join(temp, fileEvalHash + '.js')
-      })
-      return node
+        fileEvalHash,
+        fileEvalHashPath: path.join(temp, `${fileEvalHash}.js`),
+      });
+      return node;
     },
-    fileCreated: function (node) {
-      if (!node.evalCode || node.evalCode instanceof Error || !node.fileEvalHashPath) return false
-      var evalCode = node.evalCode
-      var fileEvalHashPath = node.fileEvalHashPath
-      var dirs = path.dirname(fileEvalHashPath)
+    fileCreated(node) {
+      if (!node.evalCode || node.evalCode instanceof Error || !node.fileEvalHashPath) { return false; }
+      const evalCode = node.evalCode;
+      const fileEvalHashPath = node.fileEvalHashPath;
+      const dirs = path.dirname(fileEvalHashPath);
       return fs.mkdirsAsync(dirs)
-      .then(function () {
-        return fs.writeFileAsync(fileEvalHashPath, evalCode.preserveAlter)
-        .then(function () {
-          return true
-        })
-      })
+        .then(() => fs.writeFileAsync(fileEvalHashPath, evalCode.preserveAlter)
+          .then(() => true));
     },
-    evalResult: function (node) {
-      if (!node.fileCreated || !node.fileEvalHashPath) return false
-      var stackWrapper = evalError(filePath, nodes)
+    evalResult(node) {
+      if (!node.fileCreated || !node.fileEvalHashPath) { return false; }
+      const stackWrapper = evalError(filePath, nodes);
       return evalFileAsync(node.fileEvalHashPath)
-        .catch(function (error) {
-          return nonstopErr(error, stackWrapper, nonstop)
-        })
+        .catch((error) => nonstopErr(error, stackWrapper, nonstop));
     },
-    fileRemove: function (node) {
-      if (!node.fileCreated || !node.fileEvalHashPath) return false
-      return fs.unlinkAsync(node.fileEvalHashPath)
-    }
-  })
+    fileRemove(node) {
+      if (!node.fileCreated || !node.fileEvalHashPath) { return false; }
+      return fs.unlinkAsync(node.fileEvalHashPath);
+    },
+  });
 }
 
 /**
@@ -839,15 +765,11 @@ function evaluateScope(
   blockScope
 ) {
   if (blockScope) {
-    return promiseSeries(nodes, function (node, _index, nodes) {
-      return evaluate(node, nodes, markdownLinesLength, pkg, prepend, nonstop, filePath)
-    })
-  } else {
-    return evaluate(nodes, nodes, markdownLinesLength, pkg, prepend, nonstop, filePath)
-    .then(function (node) {
-      return [node]
-    })
+    return promiseSeries(nodes, (node, _index, nodes) => evaluate(node, nodes, markdownLinesLength, pkg, prepend, nonstop, filePath));
   }
+  return evaluate(nodes, nodes, markdownLinesLength, pkg, prepend, nonstop, filePath)
+    .then((node) => [node]);
+
 }
 
 /**
@@ -875,31 +797,33 @@ function outputCode(
   delimeter
 ) {
   return promiseRipple(node, {
-    notice: function (node) {
-      var ids = Array.isArray(node) ? node.map(function (n) { return n.id }) : [node.id]
-      var word = (ids.length > 1) ? 'blocks' : 'block'
-      logInfo(filePath, ['outputting', word, ids.join(', ')].join(' '))
+    notice(node) {
+      const ids = Array.isArray(node) ? node.map((n) => n.id) : [node.id];
+      const word = (ids.length > 1) ? 'blocks' : 'block';
+      logInfo(filePath, [
+        'outputting', word, ids.join(', '),
+      ].join(' '));
     },
-    evalCode: function (node) {
-      CURRENT_PARSE = (Array.isArray(node) ? (node[0] && node[0].parse) : node.parse) || false
-      var stackWrapper = acornError(nodes, filePath)
+    evalCode(node) {
+      CURRENT_PARSE = (Array.isArray(node) ? (node[0] && node[0].parse) : node.parse) || false;
+      const stackWrapper = acornError(nodes, filePath);
       try {
-        return buildEvalable(node, nodes, markdownLinesLength, pkg, prepend)
+        return buildEvalable(node, nodes, markdownLinesLength, pkg, prepend);
       } catch (error) {
-        return nonstopErr(error, stackWrapper, nonstop)
+        return nonstopErr(error, stackWrapper, nonstop);
       }
     },
-    output: function (node) {
-      if (!node.evalCode || node.evalCode instanceof Error) return false
-      if (output === true) output = 'preserve'
+    output(node) {
+      if (!node.evalCode || node.evalCode instanceof Error) { return false; }
+      if (output === true) { output = 'preserve'; }
       if (output === 'preserve' || output === 'concat' || output === 'preserveAlter' || output === 'concatAlter') {
-        process.stdout.write(node.evalCode[output])
+        process.stdout.write(node.evalCode[output]);
       }
-      delimeter = (delimeter === true) ? '//EVALMD-STDOUT-FILE-DELIMETER' : delimeter
-      if (delimeter) process.stdout.write(delimeter)
-      return true
-    }
-  })
+      delimeter = (delimeter === true) ? '//EVALMD-STDOUT-FILE-DELIMETER' : delimeter;
+      if (delimeter) { process.stdout.write(delimeter); }
+      return true;
+    },
+  });
 }
 
 /**
@@ -925,66 +849,60 @@ function outputScope(
   delimeter
 ) {
   if (blockScope) {
-    return promiseSeries(nodes, function (node, _index, nodes) {
-      return outputCode(node, nodes, markdownLinesLength, pkg, prepend, nonstop, filePath, output, delimeter)
-    })
-  } else {
-    return outputCode(nodes, nodes, markdownLinesLength, pkg, prepend, nonstop, filePath, output, delimeter)
-    .then(function (node) {
-      return [node]
-    })
+    return promiseSeries(nodes, (node, _index, nodes) => outputCode(node, nodes, markdownLinesLength, pkg, prepend, nonstop, filePath, output, delimeter));
   }
+  return outputCode(nodes, nodes, markdownLinesLength, pkg, prepend, nonstop, filePath, output, delimeter)
+    .then((node) => [node]);
+
 }
 
 /** @type {{ [kind: string]: string[] }} */
-var KIND_LANGS = {
+const KIND_LANGS = {
   js: ['js', 'javascript'],
-  sh: ['sh']
-}
+  sh: ['sh'],
+};
 
 /** @param {readonly string[]} evalLangs */
 function normalizeKinds(evalLangs) {
   /** @type {string[]} */
-  var kinds = []
-  evalLangs.forEach(function (lang) {
-    var kind = (lang === 'javascript') ? 'js' : lang
-    if (kind && kinds.indexOf(kind) === -1) kinds.push(kind)
-  })
-  return kinds
+  const kinds = [];
+  evalLangs.forEach((lang) => {
+    const kind = (lang === 'javascript') ? 'js' : lang;
+    if (kind && kinds.indexOf(kind) === -1) { kinds.push(kind); }
+  });
+  return kinds;
 }
 
 /** @param {string | undefined} content */
 function parsePromptBlock(content) {
-  var lines = String(content || '').split(/\r\n?|\n/)
+  const lines = String(content || '').split(/\r\n?|\n/);
   /** @type {{ command: string, output: string[] }[]} */
-  var commands = []
+  const commands = [];
   /** @type {false | { command: string, output: string[] }} */
-  var current = false
-  lines.forEach(function (line) {
-    var match = line.match(/^[$%>]\s+(.*)$/)
+  let current = false;
+  lines.forEach((line) => {
+    const match = line.match(/^[$%>]\s+(.*)$/);
     if (match) {
-      current = { command: match[1], output: [] }
-      commands.push(current)
+      current = { command: match[1], output: [] };
+      commands.push(current);
     } else if (current) {
-      current.output.push(line)
+      current.output.push(line);
     }
-  })
-  return commands.map(function (item) {
-    return { command: item.command, expected: item.output.join('\n') }
-  })
+  });
+  return commands.map((item) => ({ command: item.command, expected: item.output.join('\n') }));
 }
 
 /** @param {string} command */
 function runPromptCommand(command) {
-  var mergeStderrIntoStdout = '( ' + command + ' ) 2>&1'
-  return new Promise(function (resolve) {
-    child_process.exec(mergeStderrIntoStdout, function (error, stdout) {
+  const mergeStderrIntoStdout = `( ${command} ) 2>&1`;
+  return new Promise((resolve) => {
+    childProcess.exec(mergeStderrIntoStdout, (error, stdout) => {
       resolve({
         code: (error) ? ((typeof error.code === 'number') ? error.code : 1) : 0,
-        output: String((stdout === null || stdout === undefined) ? '' : stdout)
-      })
-    })
-  })
+        output: String((stdout === null || stdout === undefined) ? '' : stdout),
+      });
+    });
+  });
 }
 
 /**
@@ -992,21 +910,21 @@ function runPromptCommand(command) {
  * @param {{ code: number, output: string }} result
  */
 function checkPromptCommand(item, result) {
-  var actual = String(result.output).replace(/\r\n/g, '\n').replace(/\n+$/, '')
-  var expected = String(item.expected).replace(/\r\n/g, '\n').replace(/\n+$/, '')
+  const actual = String(result.output).replace(/\r\n/g, '\n').replace(/\n+$/, '');
+  const expected = String(item.expected).replace(/\r\n/g, '\n').replace(/\n+$/, '');
   if (result.code !== 0) {
-    return new Error('command `' + item.command + '` exited with code ' + result.code + (actual ? '\n' + actual : ''))
+    return new Error(`command \`${item.command}\` exited with code ${result.code}${actual ? `\n${actual}` : ''}`);
   }
   if (actual !== expected) {
     return new Error([
-      'command `' + item.command + '` output did not match:',
+      `command \`${item.command}\` output did not match:`,
       '--- expected ---',
       expected,
       '--- actual ---',
-      actual
-    ].join('\n'))
+      actual,
+    ].join('\n'));
   }
-  return false
+  return false;
 }
 
 /**
@@ -1015,25 +933,25 @@ function checkPromptCommand(item, result) {
  * @param {boolean} nonstop
  */
 function evaluateShell(nodes, filePath, nonstop) {
-  return promiseSeries(nodes, function (node) {
-    logInfo(filePath, ['running', 'block', node.id].join(' '))
-    var commands = parsePromptBlock(node.content)
-    return promiseSeries(commands, function (item) {
-      return runPromptCommand(item.command).then(function (result) {
-        var error = checkPromptCommand(item, result)
-        if (error) {
-          if (!nonstop) throw error
-          logErr(error)
-          node.evalResult = error
-        }
-        return result
-      })
-    })
-    .then(function () {
-      if (!node.evalResult) node.evalResult = true
-      return node
-    })
-  })
+  return promiseSeries(nodes, (node) => {
+    logInfo(filePath, [
+      'running', 'block', node.id,
+    ].join(' '));
+    const commands = parsePromptBlock(node.content);
+    return promiseSeries(commands, (item) => runPromptCommand(item.command).then((result) => {
+      const error = checkPromptCommand(item, result);
+      if (error) {
+        if (!nonstop) { throw error; }
+        logErr(error);
+        node.evalResult = error;
+      }
+      return result;
+    }))
+      .then(() => {
+        if (!node.evalResult) { node.evalResult = true; }
+        return node;
+      });
+  });
 }
 
 /**
@@ -1043,8 +961,8 @@ function evaluateShell(nodes, filePath, nonstop) {
  * @param {boolean} nonstop
  */
 function evaluateKind(kind, nodes, filePath, nonstop) {
-  if (kind === 'sh') return evaluateShell(nodes, filePath, nonstop)
-  return Promise.resolve([])
+  if (kind === 'sh') { return evaluateShell(nodes, filePath, nonstop); }
+  return Promise.resolve([]);
 }
 
 /**
@@ -1056,37 +974,27 @@ function evaluateKind(kind, nodes, filePath, nonstop) {
  */
 function evaluateAllKinds(data, pkg, prepend, nonstop, filePath) {
   /** @type {(() => unknown)[]} */
-  var runners = []
-  var evalNodes = data.evalNodes || []
-  var markdownLinesLength = (data.markdownLines || []).length
-  var kindFences = data.kindFences || {}
+  const runners = [];
+  const evalNodes = data.evalNodes || [];
+  const markdownLinesLength = (data.markdownLines || []).length;
+  const kindFences = data.kindFences || {};
   if (evalNodes.length) {
-    runners.push(function () {
-      return evaluateScope(evalNodes, markdownLinesLength, pkg, prepend, nonstop, filePath, Boolean(data.blockScope))
-    })
+    runners.push(() => evaluateScope(evalNodes, markdownLinesLength, pkg, prepend, nonstop, filePath, Boolean(data.blockScope)));
   }
-  Object.keys(kindFences).forEach(function (kind) {
+  Object.keys(kindFences).forEach((kind) => {
     if (kindFences[kind].length) {
-      runners.push(function () {
-        return evaluateKind(kind, kindFences[kind], filePath, nonstop)
-      })
+      runners.push(() => evaluateKind(kind, kindFences[kind], filePath, nonstop));
     }
-  })
+  });
   if (!runners.length) {
-    logInfo('no blocks to eval')
-    return Promise.resolve(false)
+    logInfo('no blocks to eval');
+    return Promise.resolve(false);
   }
   /** @type {unknown[]} */
-  var results = []
-  return runners.reduce(function (chain, runner) {
-    return chain.then(function () {
-      return Promise.resolve(runner()).then(function (nodes) {
-        results = results.concat(nodes)
-      })
-    })
-  }, Promise.resolve()).then(function () {
-    return results
-  })
+  let results = [];
+  return runners.reduce((chain, runner) => chain.then(() => Promise.resolve(runner()).then((nodes) => {
+    results = results.concat(nodes);
+  })), Promise.resolve()).then(() => results);
 }
 
 /**
@@ -1106,73 +1014,128 @@ function evaluateAllKinds(data, pkg, prepend, nonstop, filePath) {
 function assemble(filePath, pkg, prepend, blockScope, nonstop, preventEval, includePrevented, output, delimeter, evalLangs, useEslint) {
   // get the markdown file contents
   /** @type {AssembleData} */
-  var initial = {}
+  const initial = {};
   return promiseRipple(initial, {
-    markdown: function () {
-      return fs.readFileAsync(filePath, 'utf8')
+    markdown() {
+      return fs.readFileAsync(filePath, 'utf8');
     },
     /** @param {AssembleData} data */
-    processNodes: function (data) {
+    processNodes(data) {
       // create new md instance
-      var md = new MarkdownIt()
+      const md = new MarkdownIt();
       // split the markdown file by lines
-      data.markdownLines = String(data.markdown || '').split(/\r\n?|\n/)
+      data.markdownLines = String(data.markdown || '').split(/\r\n?|\n/);
       // get all the nodes
-      data.nodes = md.parse(String(data.markdown || ''), {})
+      data.nodes = md.parse(String(data.markdown || ''), {});
       // map all the nodes
-      data.nodes = mapNodes(data.nodes)
+      data.nodes = mapNodes(data.nodes);
       // get all js / javascript fenced blocks
-      data.allFences = getFences(data.nodes, ['js', 'javascript'])
+      data.allFences = getFences(data.nodes, ['js', 'javascript']);
       // get all hashes
-      data.allJsFences = getNodeId(data.allFences)
+      data.allJsFences = getNodeId(data.allFences);
       // get all permitted blocks
-      data.permittedFences = filterPrevented(data.allJsFences)
+      data.permittedFences = filterPrevented(data.allJsFences);
       // eval nodes
-      data.kinds = normalizeKinds(evalLangs)
-      var evalJs = data.kinds.indexOf('js') !== -1
-      data.evalNodes = (evalJs) ? ((includePrevented) ? data.allJsFences : data.permittedFences) : []
-      data.kindFences = {}
-      var kindFences = data.kindFences
-      var kindNodes = data.nodes || []
-      data.kinds.forEach(function (kind) {
-        if (kind === 'js') return
-        kindFences[kind] = getNodeId(getFences(kindNodes, KIND_LANGS[kind] || [kind]))
-      })
+      data.kinds = normalizeKinds(evalLangs);
+      const evalJs = data.kinds.indexOf('js') !== -1;
+      data.evalNodes = (evalJs) ? ((includePrevented) ? data.allJsFences : data.permittedFences) : [];
+      data.kindFences = {};
+      const kindFences = data.kindFences;
+      const kindNodes = data.nodes || [];
+      data.kinds.forEach((kind) => {
+        if (kind === 'js') { return; }
+        kindFences[kind] = getNodeId(getFences(kindNodes, KIND_LANGS[kind] || [kind]));
+      });
       // get the blockscope
       data.blockScope = blockScope
-        || Boolean(data.evalNodes.map(function (node) { return node.fileEval }).filter(function (fileEval) { return fileEval !== false }).length)
-      return data
+        || Boolean(data.evalNodes.map((node) => node.fileEval).filter((fileEval) => fileEval !== false).length);
+      return data;
     },
     /** @param {AssembleData} data */
-    resolvedParsers: function (data) {
-      if (!useEslint) return false
-      return Promise.all((data.evalNodes || []).map(function (node) {
-        return resolveParse(filePath, String(node.id), process.cwd()).then(function (parse) {
-          node.parse = parse
-          return node.id
-        })
-      }))
+    resolvedParsers(data) {
+      if (!useEslint) { return false; }
+      return Promise.all((data.evalNodes || []).map((node) => resolveParse(filePath, String(node.id), process.cwd()).then((parse) => {
+        node.parse = parse;
+        return node.id;
+      })));
     },
     /** @param {AssembleData} data */
-    evaluated: function (data) {
+    evaluated(data) {
       if (preventEval) {
-        logInfo('eval prevented')
-        return false
+        logInfo('eval prevented');
+        return false;
       }
-      return evaluateAllKinds(data, pkg, prepend, nonstop, filePath)
+      return evaluateAllKinds(data, pkg, prepend, nonstop, filePath);
     },
     /** @param {AssembleData} data */
-    outputed: function (data) {
+    outputed(data) {
       if (!output) {
-        return false
+        return false;
       }
-      if (!data.evalNodes || !data.markdownLines) return false
-      return outputScope(data.evalNodes, data.markdownLines.length, pkg, prepend, nonstop, filePath, Boolean(data.blockScope), output, delimeter)
-    }
-  })
+      if (!data.evalNodes || !data.markdownLines) { return false; }
+      return outputScope(data.evalNodes, data.markdownLines.length, pkg, prepend, nonstop, filePath, Boolean(data.blockScope), output, delimeter);
+    },
+  });
 }
 
-module.exports = main
+/**
+ * :fishing_pole_and_fish: Evaluates javascript code blocks from markdown files.
+ * @module evalmd
+ * @package.keywords eval, evaulate, javascript, markdown, test
+ * @package.preferGlobal
+ * @package.bin.evalmd ./bin/eval-markdown.js
+ * @package.bin.test-markdown ./bin/eval-markdown.js
+ * @package.bin.eval-markdown ./bin/eval-markdown.js
+ * @param {string | readonly string[]} filePath$
+ * @param {string} packagePath
+ * @param {string} prepend
+ * @param {boolean} blockScope
+ * @param {boolean} nonstop
+ * @param {boolean} preventEval
+ * @param {boolean} includePrevented
+ * @param {boolean} silence
+ * @param {boolean} debug
+ * @param {string | boolean} output
+ * @param {string | boolean} delimeter
+ * @param {readonly string[]} evalLangs
+ * @param {boolean} sloppy
+ * @param {boolean} useEslint
+ */
+function main(filePath$, packagePath, prepend, blockScope, nonstop, preventEval, includePrevented, silence, debug, output, delimeter, evalLangs, sloppy, useEslint) {
+  /** @type {string[]} */
+  const logStore = [];
+  evalLangs = (evalLangs && evalLangs.length) ? evalLangs : ['js'];
+  DEBUG = debug;
+  SLOPPY = sloppy;
+  log = logFactory(logStore, silence);
+  const filePaths = flatten([filePath$]);
+  logInfo('it worked if it ends with', 'ok');
+  return getPackage(packagePath)
+    .then((pkg) => Promise.all(filePaths.map((filePath) => assemble(filePath, pkg, prepend, blockScope, nonstop, preventEval, includePrevented, output, delimeter, evalLangs, useEslint))))
+    .then((mdResults) => {
+    // console.log(mdResults)
+      const exitCode = getExitCode(mdResults);
+      if (exitCode === 0) { logInfo('ok'); }
+      logDebug('exit code', exitCode);
+      return {
+        dataSets: mdResults,
+        exitCode,
+        log: logStore,
+      };
+    })
+    .catch((error) => {
+      logErr(error);
+      const exitCode = 1;
+      logDebug('exit code', exitCode);
+      return {
+        dataSets: null,
+        exitCode: 1,
+        log: null,
+      };
+    });
+}
+
+module.exports = main;
 module.exports.getExitCode = getExitCode;
 module.exports.getPackage = getPackage;
 module.exports.previousIndex = previousIndex;
@@ -1227,526 +1190,576 @@ module.exports.assemble = assemble;
 
 // .then(console.log)
 
-// .then(function (report) {
-//   console.log(report[0].evaluated)
-// })
+/*
+ * .then(function (report) {
+ *   console.log(report[0].evaluated)
+ * })
+ */
 
 // console.log(JSON.stringify(nodes, null, 2))
 
-  // var childrenSets = map(subNodes, 'children')
-  // if (!childrenSets.length) return false
-  // var found = find(childrenSets, function (children) {
-  //   return find(children, function (child) {
-  //     if (child.type === 'link_open') {
-  //       if (!child.attrs) return false
-  //       var hrefIndex = child.attrIndex('href')
-  //       var hrefValue = child.attrs[hrefIndex][1]
-  //       return hrefValue.match(/(eval\s?file|file\s?eval)/i)
-  //     } else if (child.type === 'text') {
-  //       return child.content.match(/\[\]\(#?(eval\s?file|file\s?eval)\)/i)
-  //     }
-  //     return false
-  //   })
-  // })
-  // console.log(found)
-  // return found
-// }
+/*
+ * var childrenSets = map(subNodes, 'children')
+ * if (!childrenSets.length) return false
+ * var found = find(childrenSets, function (children) {
+ *   return find(children, function (child) {
+ *     if (child.type === 'link_open') {
+ *       if (!child.attrs) return false
+ *       var hrefIndex = child.attrIndex('href')
+ *       var hrefValue = child.attrs[hrefIndex][1]
+ *       return hrefValue.match(/(eval\s?file|file\s?eval)/i)
+ *     } else if (child.type === 'text') {
+ *       return child.content.match(/\[\]\(#?(eval\s?file|file\s?eval)\)/i)
+ *     }
+ *     return false
+ *   })
+ * })
+ * console.log(found)
+ * return found
+ * }
+ */
 
-// var previousSiblingFileEval = main.previousSiblingFileEval = function (node, nodes) {
-//   var index = indexOf(nodes, node)
-//   var subNodes = slice(nodes, node.previousFenceIndex, index)
-//   var childrenSets = map(subNodes, 'children')
-//   childrenSets = flatten(childrenSets)
-//   if (!childrenSets.length) return false
-//   var found = find(childrenSets, function (children) {
-//     return find(children, function (child) {
-//       if (child.type === 'link_open') {
-//         if (!child.attrs) return false
-//         var hrefIndex = child.attrIndex('href')
-//         var hrefValue = child.attrs[hrefIndex][1]
-//         return hrefValue.match(/eval\s?file|file\s?eval/i)
-//       }
-//       return false
-//     })
-//   })
-//   console.log(found)
-// var text = find(found, {
-//   'type': 'text'
-// })
-// return (text && text.content) ? text.content : false
-// }
+/*
+ * var previousSiblingFileEval = main.previousSiblingFileEval = function (node, nodes) {
+ *   var index = indexOf(nodes, node)
+ *   var subNodes = slice(nodes, node.previousFenceIndex, index)
+ *   var childrenSets = map(subNodes, 'children')
+ *   childrenSets = flatten(childrenSets)
+ *   if (!childrenSets.length) return false
+ *   var found = find(childrenSets, function (children) {
+ *     return find(children, function (child) {
+ *       if (child.type === 'link_open') {
+ *         if (!child.attrs) return false
+ *         var hrefIndex = child.attrIndex('href')
+ *         var hrefValue = child.attrs[hrefIndex][1]
+ *         return hrefValue.match(/eval\s?file|file\s?eval/i)
+ *       }
+ *       return false
+ *     })
+ *   })
+ *   console.log(found)
+ * var text = find(found, {
+ *   'type': 'text'
+ * })
+ * return (text && text.content) ? text.content : false
+ * }
+ */
 
-// var commentPreventEval = main.commentPreventEval = function (node) {
-//   var options = [
-//     Boolean(node.content.match(/^\/\/ prevent eval/i)),
-//     Boolean(node.content.match(/^\/\/ preventeval/i)),
-//     Boolean(node.content.match(/^\/\/ eval prevent/i)),
-//     Boolean(node.content.match(/^\/\/ evalprevent/i))
-//   ]
-//   return includes(options, true)
-// }
-//
-// block.assignFileViaComment = block.code.match(/\/\/\s(file\s?eval\s|eval\s?file\s)(.+)/i)
-//
-// var commentPreventEval = main.commentPreventEval = function (node) {
-//
-// }
+/*
+ * var commentPreventEval = main.commentPreventEval = function (node) {
+ *   var options = [
+ *     Boolean(node.content.match(/^\/\/ prevent eval/i)),
+ *     Boolean(node.content.match(/^\/\/ preventeval/i)),
+ *     Boolean(node.content.match(/^\/\/ eval prevent/i)),
+ *     Boolean(node.content.match(/^\/\/ evalprevent/i))
+ *   ]
+ *   return includes(options, true)
+ * }
+ *
+ * block.assignFileViaComment = block.code.match(/\/\/\s(file\s?eval\s|eval\s?file\s)(.+)/i)
+ *
+ * var commentPreventEval = main.commentPreventEval = function (node) {
+ *
+ * }
+ */
 
-// var preventEval = main.preventEval = function (node, nodes) {
-//   var index = indexOf(nodes, node)
-//   var subNodes = slice(nodes, node.prevFenceIndex, index)
-//   var result = find(subNodes, function (node) {
-//     if (!node.children) return false
-//     return find(node.children, function (childElement) {
-//       if (childElement.type == "link_open") {
-//         var hrefIndex = childElement.attrIndex('href')
-//         var hrefValue = childElement.attrs[hrefIndex][1]
-//         return hrefValue
-//       }
-//       if (childElement.type == "text") {
-//         var hrefIndex = childElement.attrIndex('href')
-//         var hrefValue = childElement.attrs[hrefIndex][1]
-//
-//       }
-      // return find(childElement, function (child) {
-      //   if (child.type !== 'link_open') return false
-      //   var hrefIndex = child.attrIndex('href')
-      //   var hrefValue = child.attrs[hrefIndex][1]
-      //   console.log(hrefValue)
-      //   var options = [
-      //     Boolean(hrefValue.match(/prevent eval/i)),
-      //     Boolean(hrefValue.match(/preventeval/i)),
-      //     Boolean(hrefValue.match(/eval prevent/i)),
-      //     Boolean(hrefValue.match(/evalprevent/i))
-      //   ]
-      //   return includes(options, true)
-      // })
-//     })
-//   })
-//   return Boolean(result)
-// }
-  // var index = indexOf(nodes, node)
-  // var haystack = slice(nodes, node.prevFenceIndex, index)
-  // var needle = find(haystack, function (node) {
-  //   if (!node.children) return false
-  //   return find(node.children, function (child) {
-  //     if (child.type !== 'link_open') return false
-  //     if (!child.attrs) return false
-  //     var hrefIndex = child.attrIndex('href')
-  //     var hrefValue = child.attrs[hrefIndex][1]
-  //     var options = [
-  //       Boolean(hrefValue.match(/prevent eval/i)),
-  //       Boolean(hrefValue.match(/preventeval/i)),
-  //       Boolean(hrefValue.match(/eval prevent/i)),
-  //       Boolean(hrefValue.match(/evalprevent/i))
-  //     ]
-  //     return includes(options, true)
-  //   })
-  // })
-  // return Boolean(needle)
-// }
+/*
+ * var preventEval = main.preventEval = function (node, nodes) {
+ *   var index = indexOf(nodes, node)
+ *   var subNodes = slice(nodes, node.prevFenceIndex, index)
+ *   var result = find(subNodes, function (node) {
+ *     if (!node.children) return false
+ *     return find(node.children, function (childElement) {
+ *       if (childElement.type == "link_open") {
+ *         var hrefIndex = childElement.attrIndex('href')
+ *         var hrefValue = childElement.attrs[hrefIndex][1]
+ *         return hrefValue
+ *       }
+ *       if (childElement.type == "text") {
+ *         var hrefIndex = childElement.attrIndex('href')
+ *         var hrefValue = childElement.attrs[hrefIndex][1]
+ *
+ *       }
+ * return find(childElement, function (child) {
+ *   if (child.type !== 'link_open') return false
+ *   var hrefIndex = child.attrIndex('href')
+ *   var hrefValue = child.attrs[hrefIndex][1]
+ *   console.log(hrefValue)
+ *   var options = [
+ *     Boolean(hrefValue.match(/prevent eval/i)),
+ *     Boolean(hrefValue.match(/preventeval/i)),
+ *     Boolean(hrefValue.match(/eval prevent/i)),
+ *     Boolean(hrefValue.match(/evalprevent/i))
+ *   ]
+ *   return includes(options, true)
+ * })
+ *     })
+ *   })
+ *   return Boolean(result)
+ * }
+ * var index = indexOf(nodes, node)
+ * var haystack = slice(nodes, node.prevFenceIndex, index)
+ * var needle = find(haystack, function (node) {
+ *   if (!node.children) return false
+ *   return find(node.children, function (child) {
+ *     if (child.type !== 'link_open') return false
+ *     if (!child.attrs) return false
+ *     var hrefIndex = child.attrIndex('href')
+ *     var hrefValue = child.attrs[hrefIndex][1]
+ *     var options = [
+ *       Boolean(hrefValue.match(/prevent eval/i)),
+ *       Boolean(hrefValue.match(/preventeval/i)),
+ *       Boolean(hrefValue.match(/eval prevent/i)),
+ *       Boolean(hrefValue.match(/evalprevent/i))
+ *     ]
+ *     return includes(options, true)
+ *   })
+ * })
+ * return Boolean(needle)
+ * }
+ */
 
-// nodes = map(nodes, function (node) {
-//   node.children = elements(node.children)
-//   node.prevFenceIndex = prevIndex(node, nodes, 'fence')
-//   // console.log(node.children)
-//   node.preventEval = preventEval(node, nodes)
-//   // node.fileEval = fileEval(node, nodes)
-//   return node
-// })
-
-// console.log(nodes)
-
-// var preventEval = main.preventEval = function (node, nodes) {
-//   var index = indexOf(nodes, node)
-//   var haystack = slice(nodes, node.prevFenceIndex, index)
-//   var needle = find(haystack, function (node) {
-//     if (!node.children) return false
-//     return find(node.children, function (child) {
-//       if (child.type !== 'link_open') return false
-//       if (!child.attrs) return false
-//       var hrefIndex = child.attrIndex('href')
-//       var hrefValue = child.attrs[hrefIndex][1]
-//       var options = [
-//         Boolean(hrefValue.match(/prevent eval/i)),
-//         Boolean(hrefValue.match(/preventeval/i)),
-//         Boolean(hrefValue.match(/eval prevent/i)),
-//         Boolean(hrefValue.match(/evalprevent/i))
-//       ]
-//       return includes(options, true)
-//     })
-//   })
-//   return Boolean(needle)
-// }
-//
-// var fileEval = main.fileEval = function (node, nodes) {
-//   var index = indexOf(nodes, node)
-//   var haystack = slice(nodes, node.prevFenceIndex, index)
-//
-//   var needle = find(haystack, function (node) {
-//     if (!node.children) return false
-//     return find(node.children, function (child) {
-//       if (child.type !== 'link_open') return false
-//       if (!child.attrs) return false
-//       var hrefIndex = child.attrIndex('href')
-//       var hrefValue = child.attrs[hrefIndex][1]
-//       var options = [
-//         Boolean(hrefValue.match(/file eval/i)),
-//         Boolean(hrefValue.match(/fileeval/i)),
-//         Boolean(hrefValue.match(/eval file/i)),
-//         Boolean(hrefValue.match(/evalfile/i))
-//       ]
-//       return includes(options, true)
-//     })
-//   })
-//
-//   if (!needle) return false
-//
-//   console.log(needle)
-// }
+/*
+ * nodes = map(nodes, function (node) {
+ *   node.children = elements(node.children)
+ *   node.prevFenceIndex = prevIndex(node, nodes, 'fence')
+ *   // console.log(node.children)
+ *   node.preventEval = preventEval(node, nodes)
+ *   // node.fileEval = fileEval(node, nodes)
+ *   return node
+ * })
+ */
 
 // console.log(nodes)
 
-// var fileName = main.fileName = function (node, nodes) {
-//   var index = indexOf(nodes, node)
-//   var haystack = slice(nodes, node.prevFenceIndex, index)
-//
-//   return map(haystack, function (node, index) {
-//     node.children = map(node.children, function (child) {
-//       var prevLinkOpen = prevIndex(child, node.children, 'link_open')
-//       var index = indexOf(node.children, child)
-//       console.log([prevLinkOpen, index])
-//       var haystack = slice(node.children, prevLinkOpen, index)
-//
-//       console.log(haystack)
+/*
+ * var preventEval = main.preventEval = function (node, nodes) {
+ *   var index = indexOf(nodes, node)
+ *   var haystack = slice(nodes, node.prevFenceIndex, index)
+ *   var needle = find(haystack, function (node) {
+ *     if (!node.children) return false
+ *     return find(node.children, function (child) {
+ *       if (child.type !== 'link_open') return false
+ *       if (!child.attrs) return false
+ *       var hrefIndex = child.attrIndex('href')
+ *       var hrefValue = child.attrs[hrefIndex][1]
+ *       var options = [
+ *         Boolean(hrefValue.match(/prevent eval/i)),
+ *         Boolean(hrefValue.match(/preventeval/i)),
+ *         Boolean(hrefValue.match(/eval prevent/i)),
+ *         Boolean(hrefValue.match(/evalprevent/i))
+ *       ]
+ *       return includes(options, true)
+ *     })
+ *   })
+ *   return Boolean(needle)
+ * }
+ *
+ * var fileEval = main.fileEval = function (node, nodes) {
+ *   var index = indexOf(nodes, node)
+ *   var haystack = slice(nodes, node.prevFenceIndex, index)
+ *
+ *   var needle = find(haystack, function (node) {
+ *     if (!node.children) return false
+ *     return find(node.children, function (child) {
+ *       if (child.type !== 'link_open') return false
+ *       if (!child.attrs) return false
+ *       var hrefIndex = child.attrIndex('href')
+ *       var hrefValue = child.attrs[hrefIndex][1]
+ *       var options = [
+ *         Boolean(hrefValue.match(/file eval/i)),
+ *         Boolean(hrefValue.match(/fileeval/i)),
+ *         Boolean(hrefValue.match(/eval file/i)),
+ *         Boolean(hrefValue.match(/evalfile/i))
+ *       ]
+ *       return includes(options, true)
+ *     })
+ *   })
+ *
+ *   if (!needle) return false
+ *
+ *   console.log(needle)
+ * }
+ */
 
-// var needle = find(haystack, function (child) {
-//
-//   return find(node.children, function (child) {
-//     var hrefIndex = child.attrIndex('href')
-//     var hrefValue = child.attrs[hrefIndex][1]
-//     var options = [
-//       Boolean(hrefValue.match(/prevent eval/i)),
-//       Boolean(hrefValue.match(/preventeval/i)),
-//       Boolean(hrefValue.match(/eval prevent/i)),
-//       Boolean(hrefValue.match(/evalprevent/i))
-//     ]
-//     return includes(options, true)
-//   })
-// })
+// console.log(nodes)
+
+/*
+ * var fileName = main.fileName = function (node, nodes) {
+ *   var index = indexOf(nodes, node)
+ *   var haystack = slice(nodes, node.prevFenceIndex, index)
+ *
+ *   return map(haystack, function (node, index) {
+ *     node.children = map(node.children, function (child) {
+ *       var prevLinkOpen = prevIndex(child, node.children, 'link_open')
+ *       var index = indexOf(node.children, child)
+ *       console.log([prevLinkOpen, index])
+ *       var haystack = slice(node.children, prevLinkOpen, index)
+ *
+ *       console.log(haystack)
+ */
+
+/*
+ * var needle = find(haystack, function (child) {
+ *
+ *   return find(node.children, function (child) {
+ *     var hrefIndex = child.attrIndex('href')
+ *     var hrefValue = child.attrs[hrefIndex][1]
+ *     var options = [
+ *       Boolean(hrefValue.match(/prevent eval/i)),
+ *       Boolean(hrefValue.match(/preventeval/i)),
+ *       Boolean(hrefValue.match(/eval prevent/i)),
+ *       Boolean(hrefValue.match(/evalprevent/i))
+ *     ]
+ *     return includes(options, true)
+ *   })
+ * })
+ */
 
 // console.log(needle)
 
-//   })
-// })
+/*
+ *   })
+ * })
+ */
 
-// if (!node.children) return node
-// var lastLink = findIndex(node.children, function (child) {
-//   if (child.type !== 'link_open') return false
-//   if (!child.attrs) return false
-//   var hrefIndex = child.attrIndex('href')
-//   var hrefValue = child.attrs[hrefIndex][1]
-//   var options = [
-//     Boolean(hrefValue.match(/file eval/i)),
-//     Boolean(hrefValue.match(/fileeval/i)),
-//     Boolean(hrefValue.match(/eval file/i)),
-//     Boolean(hrefValue.match(/evalfile/i))
-//   ]
-//   return includes(options, true)
-// })
-// // console.log(lastLink)
-// // var index(node, lastLink)
-// var haystack = slice(nodes, lastLink, index)
-// console.log(haystack)
+/*
+ * if (!node.children) return node
+ * var lastLink = findIndex(node.children, function (child) {
+ *   if (child.type !== 'link_open') return false
+ *   if (!child.attrs) return false
+ *   var hrefIndex = child.attrIndex('href')
+ *   var hrefValue = child.attrs[hrefIndex][1]
+ *   var options = [
+ *     Boolean(hrefValue.match(/file eval/i)),
+ *     Boolean(hrefValue.match(/fileeval/i)),
+ *     Boolean(hrefValue.match(/eval file/i)),
+ *     Boolean(hrefValue.match(/evalfile/i))
+ *   ]
+ *   return includes(options, true)
+ * })
+ * // console.log(lastLink)
+ * // var index(node, lastLink)
+ * var haystack = slice(nodes, lastLink, index)
+ * console.log(haystack)
+ */
 
-// var subNeedles = map(haystack, function (node) {
-//   if (!node.children) return false
-//   var node = find(node.children, function (child) {
-//     if (child.type !== 'link_open') return false
-//     if (!child.attrs) return false
-//     var hrefIndex = child.attrIndex('href')
-//     var hrefValue = child.attrs[hrefIndex][1]
-//     var options = [
-//       Boolean(hrefValue.match(/file eval/i)),
-//       Boolean(hrefValue.match(/fileeval/i)),
-//       Boolean(hrefValue.match(/eval file/i)),
-//       Boolean(hrefValue.match(/evalfile/i))
-//     ]
-//     return includes(options, true)
-//   })
-//   var lastLinkOpenIndex = prevIndex(node, nodes, 'link_open')
-//   var haystack = slice(nodes, lastLinkOpenIndex, index)
-//   return find(haystack, function (child) {
-//     return child.type === "text"
-//   })
-// })
-// }
+/*
+ * var subNeedles = map(haystack, function (node) {
+ *   if (!node.children) return false
+ *   var node = find(node.children, function (child) {
+ *     if (child.type !== 'link_open') return false
+ *     if (!child.attrs) return false
+ *     var hrefIndex = child.attrIndex('href')
+ *     var hrefValue = child.attrs[hrefIndex][1]
+ *     var options = [
+ *       Boolean(hrefValue.match(/file eval/i)),
+ *       Boolean(hrefValue.match(/fileeval/i)),
+ *       Boolean(hrefValue.match(/eval file/i)),
+ *       Boolean(hrefValue.match(/evalfile/i))
+ *     ]
+ *     return includes(options, true)
+ *   })
+ *   var lastLinkOpenIndex = prevIndex(node, nodes, 'link_open')
+ *   var haystack = slice(nodes, lastLinkOpenIndex, index)
+ *   return find(haystack, function (child) {
+ *     return child.type === "text"
+ *   })
+ * })
+ * }
+ */
 
-// console.log(JSON.stringify(nodes, null, 2))
-// console.log(nodes)
+/*
+ * console.log(JSON.stringify(nodes, null, 2))
+ * console.log(nodes)
+ */
 
-// each(nodes, function (node) {
-//   if (node.type === 'inline') {
-//     each(node.children, function (child) {
-//       if (child.attrs) {
-//         var hrefIndex = child.attrIndex('href')
-//         var hrefValue = child.attrs[hrefIndex][1]
-//         console.log(hrefValue)
-//       }
-//     })
-//   }
-// })
+/*
+ * each(nodes, function (node) {
+ *   if (node.type === 'inline') {
+ *     each(node.children, function (child) {
+ *       if (child.attrs) {
+ *         var hrefIndex = child.attrIndex('href')
+ *         var hrefValue = child.attrs[hrefIndex][1]
+ *         console.log(hrefValue)
+ *       }
+ *     })
+ *   }
+ * })
+ */
 
-// var prevented = main.prevented = function (node, nodes) {
-//   var index = indexOf(nodes, node)
-//   return [i, index]
-//   // var hay = split(arr, start, end)
-//   // return find(hay, {
-//   //   'prevent': true
-//   // })
-// }
+/*
+ * var prevented = main.prevented = function (node, nodes) {
+ *   var index = indexOf(nodes, node)
+ *   return [i, index]
+ *   // var hay = split(arr, start, end)
+ *   // return find(hay, {
+ *   //   'prevent': true
+ *   // })
+ * }
+ */
 
-// var anchor = main.anchor = function (node) {
-//   var anchor = {}
-//   anchor.text = undefined
-//   anchor.href = undefined
-//   if (node.type === 'inline' && node.content) {
-//     var pattern = /\[(.+)?\]\((.+)?\)/
-//     var pieces = node.content.match(pattern)
-//     if (!pieces) return anchor
-//     anchor.text = pieces[1]
-//     anchor.href = pieces[2]
-//   }
-//   return anchor
-// }
+/*
+ * var anchor = main.anchor = function (node) {
+ *   var anchor = {}
+ *   anchor.text = undefined
+ *   anchor.href = undefined
+ *   if (node.type === 'inline' && node.content) {
+ *     var pattern = /\[(.+)?\]\((.+)?\)/
+ *     var pieces = node.content.match(pattern)
+ *     if (!pieces) return anchor
+ *     anchor.text = pieces[1]
+ *     anchor.href = pieces[2]
+ *   }
+ *   return anchor
+ * }
+ */
 
-// if (!node.type.match('_close')) return null
-// if (!node.type.match('_close')) return null
-// var subNodes = slice(nodes, index + 1)
-// var endingIndex = findIndex(subNodes, node.tag)
+/*
+ * if (!node.type.match('_close')) return null
+ * if (!node.type.match('_close')) return null
+ * var subNodes = slice(nodes, index + 1)
+ * var endingIndex = findIndex(subNodes, node.tag)
+ */
 
 // return slice(index, endingIndex)
 
-    //
-    //   var pieceHref = find(child, function (piece) {
-    //     if (piece.type !== 'link_open') return false
-    //     if (!piece.attrs) return false
-    //     var hrefIndex = piece.attrIndex('href')
-    //     var hrefValue = piece.attrs[hrefIndex][1]
-    //     return (hrefValue.match(/(eval\s?file|file\s?eval)/i))
-    //   })
-    //   console.log(pieceHref)
-    //   if (pieceText[0] && pieceText[1]) return pieceText[1]
-    //   if (pieceHref) return pieceHref[0]
-    //   return false
-    // })
+/*
+ *
+ *   var pieceHref = find(child, function (piece) {
+ *     if (piece.type !== 'link_open') return false
+ *     if (!piece.attrs) return false
+ *     var hrefIndex = piece.attrIndex('href')
+ *     var hrefValue = piece.attrs[hrefIndex][1]
+ *     return (hrefValue.match(/(eval\s?file|file\s?eval)/i))
+ *   })
+ *   console.log(pieceHref)
+ *   if (pieceText[0] && pieceText[1]) return pieceText[1]
+ *   if (pieceHref) return pieceHref[0]
+ *   return false
+ * })
+ */
 
-// var addEvalCode = main.addEvalCode = function (nodes, blockScope, markdownLinesLength, pkg, prepend, nonstop) {
-//   return map(nodes, function (node) {
-//     node.evalCode = false
-//     if (!blockScope) return node
-//     node.evalCode = catchNonstop(function () {
-//       var evalables = buildEvalable(node, markdownLinesLength, pkg, prepend)
-//       return evalables.preserveAlter
-//     }, nonstop)
-//     return node
-//   })
-// }
+/*
+ * var addEvalCode = main.addEvalCode = function (nodes, blockScope, markdownLinesLength, pkg, prepend, nonstop) {
+ *   return map(nodes, function (node) {
+ *     node.evalCode = false
+ *     if (!blockScope) return node
+ *     node.evalCode = catchNonstop(function () {
+ *       var evalables = buildEvalable(node, markdownLinesLength, pkg, prepend)
+ *       return evalables.preserveAlter
+ *     }, nonstop)
+ *     return node
+ *   })
+ * }
+ */
 
-// var writeTemp = main.writeTemp = function (nodes, markdownLinesLength, pkg, prepend) {
-//   return Promise.map(nodes, function (node) {
-//     if (node.fileEvalHashPath && node.evalCode) {
-//       var dirs = path.dirname(node.fileEvalHashPath)
-//       return fs.mkdirsAsync(dirs)
-//         .then(function () {
-//         return fs.writeFileAsync(node.fileEvalHashPath, buildPermittedPreserveAlt)
-//         .then(function () {
-//           return node.fileEvalHashPath
-//         })
-//       })
-//     } else {
-//       return false
-//     }
-//   })
-// }
+/*
+ * var writeTemp = main.writeTemp = function (nodes, markdownLinesLength, pkg, prepend) {
+ *   return Promise.map(nodes, function (node) {
+ *     if (node.fileEvalHashPath && node.evalCode) {
+ *       var dirs = path.dirname(node.fileEvalHashPath)
+ *       return fs.mkdirsAsync(dirs)
+ *         .then(function () {
+ *         return fs.writeFileAsync(node.fileEvalHashPath, buildPermittedPreserveAlt)
+ *         .then(function () {
+ *           return node.fileEvalHashPath
+ *         })
+ *       })
+ *     } else {
+ *       return false
+ *     }
+ *   })
+ * }
+ */
 
-// function InvalidValueError(value, type) {
-//   // this.message = "Expected `" + type.name + "`: " + value;
-//   var error = new Error(this.message);
-//   this.stack = error.stack;
-// }
-// InvalidValueError.prototype = new Error();
-// InvalidValueError.prototype.name = InvalidValueError.name;
-// InvalidValueError.prototype.constructor = InvalidValueError;
+/*
+ * function InvalidValueError(value, type) {
+ *   // this.message = "Expected `" + type.name + "`: " + value;
+ *   var error = new Error(this.message);
+ *   this.stack = error.stack;
+ * }
+ * InvalidValueError.prototype = new Error();
+ * InvalidValueError.prototype.name = InvalidValueError.name;
+ * InvalidValueError.prototype.constructor = InvalidValueError;
+ */
 
-// var Evacuate = main.Evacuate = function (e) {
-//   this.stack = e.stack
-//   this.message = e.message
-//   this.name = 'Evacuate'
-//   this.message = e.message || e || ''
-//   if (!(e instanceof Error)) var e = new Error(this.message)
-//   e.name = this.name
-//   this.stack = e.stack
-// }
-// Evacuate.prototype = Error.prototype
-//
-// var foo = new Error('hi')
-// var bar = new InvalidValueError()
-// throw bar
+/*
+ * var Evacuate = main.Evacuate = function (e) {
+ *   this.stack = e.stack
+ *   this.message = e.message
+ *   this.name = 'Evacuate'
+ *   this.message = e.message || e || ''
+ *   if (!(e instanceof Error)) var e = new Error(this.message)
+ *   e.name = this.name
+ *   this.stack = e.stack
+ * }
+ * Evacuate.prototype = Error.prototype
+ *
+ * var foo = new Error('hi')
+ * var bar = new InvalidValueError()
+ * throw bar
+ */
 
 // [![Bitdeli Badge](https://d2weczhvl823v0.cloudfront.net/reggi/evalmd/trend.png)](https://bitdeli.com/free "Bitdeli Badge")
 
-// var fileEval = main.fileEval = function (node, nodes) {
-//   // get the index for the node
-//   var index = indexOf(nodes, node)
-//   // split the nodes get all between last fence and this node
-//   var subNodes = slice(nodes, node.previousFenceIndex, index)
-//   // map loop / find
-//
-//   // get the href value
-//   var href = chain(subNodes).map(function (node) {
-//     return find(node.children, function (child) {
-//       return find(child, function (piece) {
-//         if (piece.type !== 'link_open') return false
-//         if (!piece.attrs) return false
-//         var hrefIndex = piece.attrIndex('href')
-//         var hrefValue = piece.attrs[hrefIndex][1]
-//         return hrefValue.match(/(eval\s?file|file\s?eval)/i)
-//       })
-//     })
-//   }).flattenDeep().without(false).value()
-//   // if heref get the text of the href
-//   if (href) {
-//     var hrefText = find(href, {
-//       'type': 'text'
-//     })
-//     if (hrefText && hrefText.content) {
-//       return hrefText.content
-//     }
-//   }
-//   // check first line for comment declaration
-//   var commentMatch = node.content.match(/\/\/\s(file\s?eval\s|eval\s?file\s)(.+)/i)
-//   // if there's a first-line comment match return the value
-//   if (commentMatch && commentMatch[2]) {
-//     return commentMatch[2]
-//   }
-//   // return false if all-else fails
-//   return false
-// }
-//
-//
-// var preventEval = main.preventEval = function (node, nodes) {
-//   // get the nodes
-//
-//   // search through children nodes
-//   var value = map(subNodes, function (node) {
-//     return map(node.children, function (child) {
-//       var pieceText = find(child, function (piece) {
-//         if (piece.type !== 'text') return false
-//         return piece.content.match(/\[\]\(#?(eval\s?prevent|prevent\s?eval)\)/i)
-//       })
-//       var pieceHref = find(child, function (piece) {
-//         if (piece.type !== 'link_open') return false
-//         if (!piece.attrs) return false
-//         var hrefIndex = piece.attrIndex('href')
-//         var hrefValue = piece.attrs[hrefIndex][1]
-//         return hrefValue.match(/(eval\s?prevent|prevent\s?eval)/i)
-//       })
-//       return pieceText || pieceHref || false
-//     })
-//   })
-//   // clean up the child nodes
-//   var found = chain(value).flatten().without(false).value()
-//   // if child nodes match return true
-//   if (found && found.length) {
-//     return true
-//   }
-//   // check first line for comment declaration
-//   var commentMatch = node.content.match(/\/\/\s(prevent\s?eval\s|eval\s?prevent\s)(.+)/i)
-//   // if there's a first-line comment match return true
-//   if (commentMatch) {
-//     return true
-//   }
-//   // return false if all-else fails
-//   return false
-// }
+/*
+ * var fileEval = main.fileEval = function (node, nodes) {
+ *   // get the index for the node
+ *   var index = indexOf(nodes, node)
+ *   // split the nodes get all between last fence and this node
+ *   var subNodes = slice(nodes, node.previousFenceIndex, index)
+ *   // map loop / find
+ *
+ *   // get the href value
+ *   var href = chain(subNodes).map(function (node) {
+ *     return find(node.children, function (child) {
+ *       return find(child, function (piece) {
+ *         if (piece.type !== 'link_open') return false
+ *         if (!piece.attrs) return false
+ *         var hrefIndex = piece.attrIndex('href')
+ *         var hrefValue = piece.attrs[hrefIndex][1]
+ *         return hrefValue.match(/(eval\s?file|file\s?eval)/i)
+ *       })
+ *     })
+ *   }).flattenDeep().without(false).value()
+ *   // if heref get the text of the href
+ *   if (href) {
+ *     var hrefText = find(href, {
+ *       'type': 'text'
+ *     })
+ *     if (hrefText && hrefText.content) {
+ *       return hrefText.content
+ *     }
+ *   }
+ *   // check first line for comment declaration
+ *   var commentMatch = node.content.match(/\/\/\s(file\s?eval\s|eval\s?file\s)(.+)/i)
+ *   // if there's a first-line comment match return the value
+ *   if (commentMatch && commentMatch[2]) {
+ *     return commentMatch[2]
+ *   }
+ *   // return false if all-else fails
+ *   return false
+ * }
+ *
+ *
+ * var preventEval = main.preventEval = function (node, nodes) {
+ *   // get the nodes
+ *
+ *   // search through children nodes
+ *   var value = map(subNodes, function (node) {
+ *     return map(node.children, function (child) {
+ *       var pieceText = find(child, function (piece) {
+ *         if (piece.type !== 'text') return false
+ *         return piece.content.match(/\[\]\(#?(eval\s?prevent|prevent\s?eval)\)/i)
+ *       })
+ *       var pieceHref = find(child, function (piece) {
+ *         if (piece.type !== 'link_open') return false
+ *         if (!piece.attrs) return false
+ *         var hrefIndex = piece.attrIndex('href')
+ *         var hrefValue = piece.attrs[hrefIndex][1]
+ *         return hrefValue.match(/(eval\s?prevent|prevent\s?eval)/i)
+ *       })
+ *       return pieceText || pieceHref || false
+ *     })
+ *   })
+ *   // clean up the child nodes
+ *   var found = chain(value).flatten().without(false).value()
+ *   // if child nodes match return true
+ *   if (found && found.length) {
+ *     return true
+ *   }
+ *   // check first line for comment declaration
+ *   var commentMatch = node.content.match(/\/\/\s(prevent\s?eval\s|eval\s?prevent\s)(.+)/i)
+ *   // if there's a first-line comment match return true
+ *   if (commentMatch) {
+ *     return true
+ *   }
+ *   // return false if all-else fails
+ *   return false
+ * }
+ */
 
-    // node.preventEval = preventEval(node, nodes)
-    // node.fileEval = fileEval(node, nodes)
-//
-// var fileEval = main.fileEval = function (node, nodes) {
-//   // get the index for the node
-//   var index = indexOf(nodes, node)
-//   // split the nodes get all between last fence and this node
-//   var subNodes = slice(nodes, node.previousFenceIndex, index)
-//   // map loop / find
-//   var text = chain(subNodes).map(function (node) {
-//     return map(node.children, function (child) {
-//       return map(child, function (piece) {
-//         if (piece.type !== 'text') return false
-//         return piece.content.match(/\[(.+?)\]\(#?(eval\s?file|file\s?eval)\)/i)
-//       })
-//     })
-//   }).flattenDeep().without(false).value()
-//   // return file if match has been made
-//   if (text && text[1]) {
-//     return text[1]
-//   }
-//   // get the href value
-//   var href = chain(subNodes).map(function (node) {
-//     return find(node.children, function (child) {
-//       return find(child, function (piece) {
-//         if (piece.type !== 'link_open') return false
-//         if (!piece.attrs) return false
-//         var hrefIndex = piece.attrIndex('href')
-//         var hrefValue = piece.attrs[hrefIndex][1]
-//         return hrefValue.match(/(eval\s?file|file\s?eval)/i)
-//       })
-//     })
-//   }).flattenDeep().without(false).value()
-//   // if heref get the text of the href
-//   if (href) {
-//     var hrefText = find(href, {
-//       'type': 'text'
-//     })
-//     if (hrefText && hrefText.content) {
-//       return hrefText.content
-//     }
-//   }
-//   // check first line for comment declaration
-//   var commentMatch = node.content.match(/\/\/\s(file\s?eval\s|eval\s?file\s)(.+)/i)
-//   // if there's a first-line comment match return the value
-//   if (commentMatch && commentMatch[2]) {
-//     return commentMatch[2]
-//   }
-//   // return false if all-else fails
-//   return false
-// }
+/*
+ * node.preventEval = preventEval(node, nodes)
+ * node.fileEval = fileEval(node, nodes)
+ *
+ * var fileEval = main.fileEval = function (node, nodes) {
+ *   // get the index for the node
+ *   var index = indexOf(nodes, node)
+ *   // split the nodes get all between last fence and this node
+ *   var subNodes = slice(nodes, node.previousFenceIndex, index)
+ *   // map loop / find
+ *   var text = chain(subNodes).map(function (node) {
+ *     return map(node.children, function (child) {
+ *       return map(child, function (piece) {
+ *         if (piece.type !== 'text') return false
+ *         return piece.content.match(/\[(.+?)\]\(#?(eval\s?file|file\s?eval)\)/i)
+ *       })
+ *     })
+ *   }).flattenDeep().without(false).value()
+ *   // return file if match has been made
+ *   if (text && text[1]) {
+ *     return text[1]
+ *   }
+ *   // get the href value
+ *   var href = chain(subNodes).map(function (node) {
+ *     return find(node.children, function (child) {
+ *       return find(child, function (piece) {
+ *         if (piece.type !== 'link_open') return false
+ *         if (!piece.attrs) return false
+ *         var hrefIndex = piece.attrIndex('href')
+ *         var hrefValue = piece.attrs[hrefIndex][1]
+ *         return hrefValue.match(/(eval\s?file|file\s?eval)/i)
+ *       })
+ *     })
+ *   }).flattenDeep().without(false).value()
+ *   // if heref get the text of the href
+ *   if (href) {
+ *     var hrefText = find(href, {
+ *       'type': 'text'
+ *     })
+ *     if (hrefText && hrefText.content) {
+ *       return hrefText.content
+ *     }
+ *   }
+ *   // check first line for comment declaration
+ *   var commentMatch = node.content.match(/\/\/\s(file\s?eval\s|eval\s?file\s)(.+)/i)
+ *   // if there's a first-line comment match return the value
+ *   if (commentMatch && commentMatch[2]) {
+ *     return commentMatch[2]
+ *   }
+ *   // return false if all-else fails
+ *   return false
+ * }
+ */
 
-//
-// var searchLink = main.searchLink = function (subNodes, pattern) {
-//   // console.log(subNodes)
-//   var href = chain(subNodes).map(function (node) {
-//     return find(node.children, function (child) {
-//       return find(child, function (piece) {
-//         if (piece.type !== 'link_open') return false
-//         if (!piece.attrs) return false
-//         var hrefIndex = piece.attrIndex('href')
-//         var hrefValue = piece.attrs[hrefIndex][1]
-//         return hrefValue.match(pattern)
-//       })
-//     })
-//   }).flattenDeep().without(false).value()
-//   // if heref get the text of the href
-//   if (href) {
-//     var hrefText = find(href, {
-//       'type': 'text'
-//     })
-//     if (hrefText && hrefText.content) {
-//       return hrefText.content
-//     } else if (hrefText) {
-//       return true
-//     }
-//   }
-//   return false
-// }
+/*
+ *
+ * var searchLink = main.searchLink = function (subNodes, pattern) {
+ *   // console.log(subNodes)
+ *   var href = chain(subNodes).map(function (node) {
+ *     return find(node.children, function (child) {
+ *       return find(child, function (piece) {
+ *         if (piece.type !== 'link_open') return false
+ *         if (!piece.attrs) return false
+ *         var hrefIndex = piece.attrIndex('href')
+ *         var hrefValue = piece.attrs[hrefIndex][1]
+ *         return hrefValue.match(pattern)
+ *       })
+ *     })
+ *   }).flattenDeep().without(false).value()
+ *   // if heref get the text of the href
+ *   if (href) {
+ *     var hrefText = find(href, {
+ *       'type': 'text'
+ *     })
+ *     if (hrefText && hrefText.content) {
+ *       return hrefText.content
+ *     } else if (hrefText) {
+ *       return true
+ *     }
+ *   }
+ *   return false
+ * }
+ */

@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-var path = require('path')
-var yargs = require('yargs')
-var fs = require('fs')
-var evalMarkdown = require('./eval-markdown')
-var argv = yargs
+const path = require('path');
+const yargs = require('yargs');
+const fs = require('fs');
+const evalMarkdown = require('./eval-markdown');
+const argv = yargs
   .usage('$0 - Evaluate the javascript in markdown files')
   .example('$0 <file(s)>', 'Evaluate file(s)')
   .example('$0 <file(s)> -n', 'Evaluate file(s) uninterrupted')
@@ -55,17 +55,17 @@ var argv = yargs
   .describe('package', 'Th path of a package.json')
   .default('package', './package.json')
   .version((function () {
-    var pkg = fs.readFileSync(path.join(__dirname, '../package.json'), 'utf8')
-    return JSON.parse(pkg).version
+    const pkg = fs.readFileSync(path.join(__dirname, '../package.json'), 'utf8');
+    return JSON.parse(pkg).version;
   }()))
   .wrap(null)
-  .argv
+  .argv;
 
-var files = argv._
+const files = argv._;
 
 if (files.length) {
 
-  var evalLangs = String(argv.eval).split(',').map(function (kind) { return kind.trim() }).filter(Boolean)
+  const evalLangs = String(argv.eval).split(',').map((kind) => kind.trim()).filter(Boolean);
 
   evalMarkdown(
     files,
@@ -83,12 +83,12 @@ if (files.length) {
     argv.sloppy,
     argv.eslint
   ).then((report: { exitCode: number }) => {
-    process.exit(report.exitCode)
+    process.exit(report.exitCode);
   })
-  .catch(() => {
-    process.exit(1)
-  })
+    .catch(() => {
+      process.exit(1);
+    });
 
 } else {
-  yargs.showHelp('log')
+  yargs.showHelp('log');
 }

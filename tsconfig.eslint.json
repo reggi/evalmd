@@ -1,0 +1,11 @@
+{
+  "extends": "@ljharb/tsconfig",
+  "compilerOptions": {
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "lib": ["es2023"],
+    "types": ["node"],
+    "noEmit": true
+  },
+  "include": ["eslint.config.mjs"]
+}
