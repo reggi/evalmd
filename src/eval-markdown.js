@@ -70,7 +70,7 @@ function main (filePath$, packagePath, prepend, blockScope, nonstop, preventEval
   })
 }
 
-var getExitCode = main.getExitCode = function (mdResults) {
+function getExitCode(mdResults) {
   var evaluations = flatten(mdResults.map(function (mdResult) { return mdResult.evaluated }))
   var evalResults = flatten(evaluations.map(function (evaluation) { return evaluation.evalResult }))
   var evalResultsInstanceofError = evalResults.map(function (evalResult) {
@@ -81,7 +81,7 @@ var getExitCode = main.getExitCode = function (mdResults) {
   return 0
 }
 
-var getPackage = main.getPackage = function (packagePath) {
+function getPackage(packagePath) {
   packagePath = (packagePath) ? packagePath : './package.json'
   return fs.readFileAsync(packagePath, 'utf8')
   .then(JSON.parse)
@@ -92,7 +92,7 @@ var getPackage = main.getPackage = function (packagePath) {
   .catch(function () { return false })
 }
 
-var previousIndex = main.previousIndex = function (node, nodes, fn) {
+function previousIndex(node, nodes, fn) {
   var index = nodes.indexOf(node)
   index = index < 0 ? 0 : index
   var subArr = nodes.slice(0, index)
@@ -101,19 +101,19 @@ var previousIndex = main.previousIndex = function (node, nodes, fn) {
   return subArr.length - revIndex
 }
 
-var previousIndexType = main.previousIndexType = function (node, nodes, type) {
+function previousIndexType(node, nodes, type) {
   return previousIndex(node, nodes, function (node) {
     return node.type === type
   })
 }
 
-var previousIndexClose = main.previousIndexClose = function (node, nodes, type) {
+function previousIndexClose(node, nodes, type) {
   return previousIndex(node, nodes, function (node) {
     return node.type.match(/\_close$/)
   })
 }
 
-var groupChildren = main.groupChildren = function (nodes) {
+function groupChildren(nodes) {
   nodes = groupBy(nodes, function (node) {
     return previousIndexClose(node, nodes)
   })
@@ -121,7 +121,7 @@ var groupChildren = main.groupChildren = function (nodes) {
 }
 
 /** searches preceeding nodes for pattern */
-var searchLink = main.searchLink = function (subNodes, pattern) {
+function searchLink(subNodes, pattern) {
   var textNode = subNodes.find(function (node) {
     if (!node.content) return false
     return node.content.match(pattern)
@@ -135,7 +135,7 @@ var searchLink = main.searchLink = function (subNodes, pattern) {
   }
 }
 
-var searchComment = main.searchComment = function (node, pattern) {
+function searchComment(node, pattern) {
   var commentMatch = node.content.match(pattern)
   // if there's a first-line comment match return the value
   if (commentMatch && commentMatch[2]) {
@@ -147,25 +147,25 @@ var searchComment = main.searchComment = function (node, pattern) {
   }
 }
 
-var createLineDoc = main.createLineDoc = function (lines) {
+function createLineDoc(lines) {
   return range(lines).map(function () {
     return ''
   })
 }
 
-var replaceLines = main.replaceLines = function (start, main, sub) {
+function replaceLines(start, main, sub) {
   main = (Array.isArray(main)) ? main : main.split('\n')
   sub = (Array.isArray(sub)) ? sub : sub.split('\n')
   var output = flatten([main.slice(0, start), sub, main.slice(start + sub.length, main.length)])
   return output
 }
 
-var getHash = main.getHash = function (content) {
+function getHash(content) {
   var shasum = crypto.createHash('md5')
   return shasum.update(content).digest('hex')
 }
 
-var mapNodes = main.mapNodes = function (nodes) {
+function mapNodes(nodes) {
   return nodes.map(function (node, index) {
     node.children = groupChildren(node.children)
     node.previousFenceIndex = previousIndexType(node, nodes, 'fence')
@@ -187,14 +187,14 @@ var mapNodes = main.mapNodes = function (nodes) {
   })
 }
 
-var getNodeId = main.getNodeId = function (nodes, filePath) {
+function getNodeId(nodes, filePath) {
   return nodes.map(function (node, index) {
     node.id = index + 1
     return node
   })
 }
 
-var getFences = main.getFences = function (nodes, langs) {
+function getFences(nodes, langs) {
   return nodes.filter(function (node) {
     if (node.type !== 'fence') return false
     if (!langs && node.type === 'fence') return true
@@ -204,13 +204,13 @@ var getFences = main.getFences = function (nodes, langs) {
   })
 }
 
-var filterPrevented = main.filterPrevented = function (nodes) {
+function filterPrevented(nodes) {
   return nodes.filter(function (node) {
     return !node.preventEval
   })
 }
 
-var buildPreserveLines = main.buildPreserveLines = function (node$, lines) {
+function buildPreserveLines(node$, lines) {
   var nodes = flatten([node$])
   var lineDoc = createLineDoc(lines)
   nodes.forEach(function (node) {
@@ -220,7 +220,7 @@ var buildPreserveLines = main.buildPreserveLines = function (node$, lines) {
   return lineDoc.join('\n')
 }
 
-var buildConcat = main.buildConcat = function (node$, lines) {
+function buildConcat(node$, lines) {
   var nodes = flatten([node$])
   return nodes
   .map(function (node) {
@@ -229,7 +229,7 @@ var buildConcat = main.buildConcat = function (node$, lines) {
   .join('')
 }
 
-var getDeps = main.getDeps = function (code) {
+function getDeps(code) {
   var ast = acorn.parse(code, {sourceType: 'module', ecmaVersion: 6})
   var deps = umd(ast, {
     es6: true, amd: true, cjs: true
@@ -237,15 +237,15 @@ var getDeps = main.getDeps = function (code) {
   return Array.from(new Set(deps))
 }
 
-var replacePosition = main.replacePosition = function (str, start, end, value) {
+function replacePosition(str, start, end, value) {
   return str.substr(0, start) + value + str.substr(end)
 }
 
-var regExpEscape = main.regExpEscape = function (s) {
+function regExpEscape(s) {
   return s.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')
 }
 
-var alterAssignedModule = main.alterAssignedModule = function (code, prepend, pkg) {
+function alterAssignedModule(code, prepend, pkg) {
   if (!pkg) return code
   prepend = (prepend) ? prepend : './'
   var deps = getDeps(code)
@@ -268,7 +268,7 @@ var alterAssignedModule = main.alterAssignedModule = function (code, prepend, pk
   return code
 }
 
-var alterSelfModules = main.alterSelfModules = function (code, nodes) {
+function alterSelfModules(code, nodes) {
   var deps = getDeps(code)
   if (!deps.length) return code
   var chars = 0
@@ -289,7 +289,7 @@ var alterSelfModules = main.alterSelfModules = function (code, nodes) {
   return code
 }
 
-var alterPrependModules = main.alterPrependModules = function (code, nodes, prepend) {
+function alterPrependModules(code, nodes, prepend) {
   var deps = getDeps(code)
   if (!deps.length) return code
   prepend = (prepend) ? prepend : './'
@@ -312,7 +312,7 @@ var alterPrependModules = main.alterPrependModules = function (code, nodes, prep
   return code
 }
 
-var alterNpmModules = main.alterNpmModules = function (code, nodes, prepend) {
+function alterNpmModules(code, nodes, prepend) {
   var deps = getDeps(code)
   if (!deps.length) return code
   prepend = (prepend) ? prepend : './'
@@ -330,7 +330,7 @@ var alterNpmModules = main.alterNpmModules = function (code, nodes, prepend) {
   return code
 }
 
-var alterModules = main.alterModules = function (code, nodes, pkg, prepend) {
+function alterModules(code, nodes, pkg, prepend) {
   // syntax errors will come through to here and
   // get thrown by the acorn parser
   code = alterAssignedModule(code, prepend, pkg)
@@ -340,7 +340,7 @@ var alterModules = main.alterModules = function (code, nodes, pkg, prepend) {
   return code
 }
 
-var buildEvalable = main.buildEvalable = function (node, nodes, markdownLinesLength, pkg, prepend) {
+function buildEvalable(node, nodes, markdownLinesLength, pkg, prepend) {
   var build = {}
   build.preserve = buildPreserveLines(node, markdownLinesLength)
   build.concat = buildConcat(node)
@@ -350,7 +350,7 @@ var buildEvalable = main.buildEvalable = function (node, nodes, markdownLinesLen
   return build
 }
 
-var stackSplit = main.stackSplit = function (stack) {
+function stackSplit(stack) {
   var stackLines = stack.split('\n')
   var buckets = {
     'frame': [],
@@ -369,20 +369,20 @@ var stackSplit = main.stackSplit = function (stack) {
 }
 
 /** join the stack from with the lines */
-var stackJoin = main.stackJoin = function (stack) {
+function stackJoin(stack) {
   return [
     stack.frame.join('\n'),
     stack.lines.join('\n')
   ].join('\n')
 }
 
-var findErrorNode = main.findErrorNode = function (nodes, line) {
+function findErrorNode(nodes, line) {
   return nodes.find(function (node) {
     return node.startLine <= line && node.endLine >= line
   })
 }
 
-var errMsg = main.errMsg = function () {
+function errMsg() {
   var args = Array.prototype.slice.call(arguments)
   if (args.length > 1) args[0] = chalk.magenta(args[0])
   return [
@@ -391,7 +391,7 @@ var errMsg = main.errMsg = function () {
   ].concat(args).join(' ')
 }
 
-var infoMsg = main.infoMsg = function () {
+function infoMsg() {
   var args = Array.prototype.slice.call(arguments)
   args[0] = chalk.magenta(args[0])
   return [
@@ -400,7 +400,7 @@ var infoMsg = main.infoMsg = function () {
   ].concat(args).join(' ')
 }
 
-var debugMsg = main.debugMsg = function () {
+function debugMsg() {
   var args = Array.prototype.slice.call(arguments)
   args[0] = chalk.magenta(args[0])
   return [
@@ -409,14 +409,14 @@ var debugMsg = main.debugMsg = function () {
   ].concat(args).join(' ')
 }
 
-var cleanStack = main.cleanStack = function (errOrStack) {
+function cleanStack(errOrStack) {
   if (errOrStack && errOrStack.stack) return String(errOrStack).split(/\r\n?|\n/)
   if (Array.isArray(errOrStack)) return errOrStack
   if (errOrStack) return String(errOrStack).split(/\r\n?|\n/)
   return false
 }
 
-var logErr = main.logErr = function (err) {
+function logErr(err) {
   var lines = cleanStack(err)
   if (lines) {
     lines.forEach(function (line) {
@@ -426,17 +426,17 @@ var logErr = main.logErr = function (err) {
   return lines
 }
 
-var logInfo = main.logInfo = function () {
+function logInfo() {
   var args = Array.prototype.slice.call(arguments)
   return log(infoMsg.apply(null, args))
 }
 
-var logDebug = main.logDebug = function () {
+function logDebug() {
   var args = Array.prototype.slice.call(arguments)
   if (DEBUG) return log(debugMsg.apply(null, args))
 }
 
-var logFactory = main.logFactory = function (store, silence) {
+function logFactory(store, silence) {
   return function (data) {
     var colorLessData = chalk.stripColor(data)
     if (!store.all) store.all = []
@@ -445,7 +445,7 @@ var logFactory = main.logFactory = function (store, silence) {
   }
 }
 
-var acornError = main.acornError = function (nodes, filePath) {
+function acornError(nodes, filePath) {
   return function (e) {
     if (!e.stack) return e
     console.log(e)
@@ -460,7 +460,7 @@ var acornError = main.acornError = function (nodes, filePath) {
   }
 }
 
-var parseLineChar = main.parseLineChar = function (s) {
+function parseLineChar(s) {
   if (s instanceof Error && s.message) s = s.message
   var patternLineChar = /:(\d+):(\d+)/
   var patternLine = /:(\d+)/
@@ -481,7 +481,7 @@ var parseLineChar = main.parseLineChar = function (s) {
   return false
 }
 
-var getCleanLines = main.getCleanLines = function (incLines, nodes, absFilePath, frame) {
+function getCleanLines(incLines, nodes, absFilePath, frame) {
   var lines = incLines.map(function (line) {
     var lineChar = parseLineChar(line)
     var matchNodes = nodes.find(function (node) {
@@ -531,7 +531,7 @@ var getCleanLines = main.getCleanLines = function (incLines, nodes, absFilePath,
   return lines.reverse()
 }
 
-var evalError = main.evalError = function (filePath, nodes) {
+function evalError(filePath, nodes) {
   return function (e) {
     if (!e.stack) return e
     var stack = stackSplit(e.stack)
@@ -545,7 +545,7 @@ var evalError = main.evalError = function (filePath, nodes) {
   }
 }
 
-var evalFileAsync = main.evalFileAsync = function (file) {
+function evalFileAsync(file) {
   return new Promise(function (resolve, reject) {
     var command = [process.execPath, file].join(' ')
     return child_process.exec(command, function (error, stdout, stderr) {
@@ -559,13 +559,13 @@ var evalFileAsync = main.evalFileAsync = function (file) {
   })
 }
 
-var getCleanErr = main.getCleanErr = function (error, stackWrapper) {
+function getCleanErr(error, stackWrapper) {
   if (stackWrapper) return stackWrapper(error)
   if (error.stack) return error.stack
   return error
 }
 
-var nonstopErr = main.nonstopErr = function (error, stackWrapper, nonstop) {
+function nonstopErr(error, stackWrapper, nonstop) {
   var cleanErr = getCleanErr(error, stackWrapper)
   if (nonstop) {
     logErr(cleanErr)
@@ -575,7 +575,7 @@ var nonstopErr = main.nonstopErr = function (error, stackWrapper, nonstop) {
   }
 }
 
-var evaluate = main.evaluate = function (node, nodes, markdownLinesLength, pkg, prepend, nonstop, filePath) {
+function evaluate(node, nodes, markdownLinesLength, pkg, prepend, nonstop, filePath) {
   return promiseRipple(node, {
     notice: function (node) {
       var ids = (Array.isArray(node)) ? node.map(function (n) { return n.id }) : [node.id]
@@ -621,7 +621,7 @@ var evaluate = main.evaluate = function (node, nodes, markdownLinesLength, pkg, 
   })
 }
 
-var evaluateScope = main.evaluateScope = function (nodes, markdownLinesLength, pkg, prepend, nonstop, filePath, blockScope) {
+function evaluateScope(nodes, markdownLinesLength, pkg, prepend, nonstop, filePath, blockScope) {
   if (blockScope) {
     return promiseSeries(nodes, function (node, index, nodes) {
       return evaluate(node, nodes, markdownLinesLength, pkg, prepend, nonstop, filePath)
@@ -634,7 +634,7 @@ var evaluateScope = main.evaluateScope = function (nodes, markdownLinesLength, p
   }
 }
 
-var outputCode = main.outputCode = function (node, nodes, markdownLinesLength, pkg, prepend, nonstop, filePath, output, delimeter) {
+function outputCode(node, nodes, markdownLinesLength, pkg, prepend, nonstop, filePath, output, delimeter) {
   return promiseRipple(node, {
     notice: function (node) {
       var ids = (Array.isArray(node)) ? node.map(function (n) { return n.id }) : [node.id]
@@ -660,7 +660,7 @@ var outputCode = main.outputCode = function (node, nodes, markdownLinesLength, p
   })
 }
 
-var outputScope = main.outputScope = function (nodes, markdownLinesLength, pkg, prepend, nonstop, filePath, blockScope, output, delimeter) {
+function outputScope(nodes, markdownLinesLength, pkg, prepend, nonstop, filePath, blockScope, output, delimeter) {
   if (blockScope) {
     return promiseSeries(nodes, function (node, index, nodes) {
       return outputCode(node, nodes, markdownLinesLength, pkg, prepend, nonstop, filePath, output, delimeter)
@@ -673,7 +673,7 @@ var outputScope = main.outputScope = function (nodes, markdownLinesLength, pkg, 
   }
 }
 
-var assemble = main.assemble = function (filePath, pkg, prepend, blockScope, nonstop, preventEval, includePrevented, output, delimeter) {
+function assemble(filePath, pkg, prepend, blockScope, nonstop, preventEval, includePrevented, output, delimeter) {
   // get the markdown file contents
   return promiseRipple({
     markdown: function (data) {
@@ -721,6 +721,55 @@ var assemble = main.assemble = function (filePath, pkg, prepend, blockScope, non
 }
 
 module.exports = main
+module.exports.getExitCode = getExitCode;
+module.exports.getPackage = getPackage;
+module.exports.previousIndex = previousIndex;
+module.exports.previousIndexType = previousIndexType;
+module.exports.previousIndexClose = previousIndexClose;
+module.exports.groupChildren = groupChildren;
+module.exports.searchLink = searchLink;
+module.exports.searchComment = searchComment;
+module.exports.createLineDoc = createLineDoc;
+module.exports.replaceLines = replaceLines;
+module.exports.getHash = getHash;
+module.exports.mapNodes = mapNodes;
+module.exports.getNodeId = getNodeId;
+module.exports.getFences = getFences;
+module.exports.filterPrevented = filterPrevented;
+module.exports.buildPreserveLines = buildPreserveLines;
+module.exports.buildConcat = buildConcat;
+module.exports.getDeps = getDeps;
+module.exports.replacePosition = replacePosition;
+module.exports.regExpEscape = regExpEscape;
+module.exports.alterAssignedModule = alterAssignedModule;
+module.exports.alterSelfModules = alterSelfModules;
+module.exports.alterPrependModules = alterPrependModules;
+module.exports.alterNpmModules = alterNpmModules;
+module.exports.alterModules = alterModules;
+module.exports.buildEvalable = buildEvalable;
+module.exports.stackSplit = stackSplit;
+module.exports.stackJoin = stackJoin;
+module.exports.findErrorNode = findErrorNode;
+module.exports.errMsg = errMsg;
+module.exports.infoMsg = infoMsg;
+module.exports.debugMsg = debugMsg;
+module.exports.cleanStack = cleanStack;
+module.exports.logErr = logErr;
+module.exports.logInfo = logInfo;
+module.exports.logDebug = logDebug;
+module.exports.logFactory = logFactory;
+module.exports.acornError = acornError;
+module.exports.parseLineChar = parseLineChar;
+module.exports.getCleanLines = getCleanLines;
+module.exports.evalError = evalError;
+module.exports.evalFileAsync = evalFileAsync;
+module.exports.getCleanErr = getCleanErr;
+module.exports.nonstopErr = nonstopErr;
+module.exports.evaluate = evaluate;
+module.exports.evaluateScope = evaluateScope;
+module.exports.outputCode = outputCode;
+module.exports.outputScope = outputScope;
+module.exports.assemble = assemble;
 
 // .then(console.log)
 
