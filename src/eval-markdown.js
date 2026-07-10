@@ -4,7 +4,8 @@ var path = require('path')
 var child_process = require('child_process')
 var { flatten, groupBy, range, values } = require('lodash')
 var promisify = require('util.promisify')
-var fsExtra = require('fs-extra')
+var nodeFs = require('fs')
+var mkdirp = require('mkdirp')
 var MarkdownIt = require('markdown-it')
 var acorn = require('acorn')
 var umd = require('./acorn-umd/acorn-umd').default
@@ -16,10 +17,10 @@ var isCore = require('is-core-module')
 var temp = path.join(osTmpDir(), 'evalmd')
 
 var fs = {
-  readFileAsync: promisify(fsExtra.readFile),
-  mkdirsAsync: promisify(fsExtra.mkdirs),
-  writeFileAsync: promisify(fsExtra.writeFile),
-  unlinkAsync: promisify(fsExtra.unlink)
+  readFileAsync: promisify(nodeFs.readFile),
+  mkdirsAsync: promisify(mkdirp),
+  writeFileAsync: promisify(nodeFs.writeFile),
+  unlinkAsync: promisify(nodeFs.unlink)
 }
 
 var log = false
