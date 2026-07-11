@@ -58,8 +58,8 @@
     "pretest": "echo 'no linting yet'",
     "test": "npm run tests-only",
     "posttest": "npx npm@\">= 10.2\" audit --production",
-    "test-node": "node ./dist/script.js ./test-readmes/qs.md ./test-readmes/fence-spaces.md",
-    "test-tsnode": "ts-node ./src/script.ts ./test-readmes/qs.md ./test-readmes/fence-spaces.md"
+    "test-node": "node ./dist/script.js ./test-readmes/qs.md ./test-readmes/fence-spaces.md && node ./dist/script.js ./test-readmes/sh.md --eval=js,sh",
+    "test-tsnode": "ts-node ./src/script.ts ./test-readmes/qs.md ./test-readmes/fence-spaces.md && ts-node ./src/script.ts ./test-readmes/sh.md --eval=js,sh"
   },
   "engines": {
     "node": ">= 4.2"

@@ -36,8 +36,9 @@ var DEBUG = false
  * @package.bin.eval-markdown ./bin/eval-markdown.js
  */
 
-function main (filePath$, packagePath, prepend, blockScope, nonstop, preventEval, includePrevented, silence, debug, output, delimeter) {
+function main (filePath$, packagePath, prepend, blockScope, nonstop, preventEval, includePrevented, silence, debug, output, delimeter, evalLangs) {
   var logStore = []
+  evalLangs = (evalLangs && evalLangs.length) ? evalLangs : ['js']
   DEBUG = debug
   log = logFactory(logStore, silence)
   var filePaths = flatten([filePath$])
@@ -45,7 +46,7 @@ function main (filePath$, packagePath, prepend, blockScope, nonstop, preventEval
   return getPackage(packagePath)
   .then(function (pkg) {
     return Promise.all(filePaths.map(function (filePath) {
-      return assemble(filePath, pkg, prepend, blockScope, nonstop, preventEval, includePrevented, output, delimeter)
+      return assemble(filePath, pkg, prepend, blockScope, nonstop, preventEval, includePrevented, output, delimeter, evalLangs)
     }))
   })
   .then(function (mdResults) {
@@ -72,7 +73,7 @@ function main (filePath$, packagePath, prepend, blockScope, nonstop, preventEval
 }
 
 function getExitCode(mdResults) {
-  var evaluations = flatten(mdResults.map(function (mdResult) { return mdResult.evaluated }))
+  var evaluations = flatten(mdResults.map(function (mdResult) { return mdResult.evaluated || [] }))
   var evalResults = flatten(evaluations.map(function (evaluation) { return evaluation.evalResult }))
   var evalResultsInstanceofError = evalResults.map(function (evalResult) {
     return evalResult instanceof Error
@@ -674,7 +675,126 @@ function outputScope(nodes, markdownLinesLength, pkg, prepend, nonstop, filePath
   }
 }
 
-function assemble(filePath, pkg, prepend, blockScope, nonstop, preventEval, includePrevented, output, delimeter) {
+var KIND_LANGS = {
+  js: ['js', 'javascript'],
+  sh: ['sh']
+}
+
+function normalizeKinds(evalLangs) {
+  var kinds = []
+  evalLangs.forEach(function (lang) {
+    var kind = (lang === 'javascript') ? 'js' : lang
+    if (kind && kinds.indexOf(kind) === -1) kinds.push(kind)
+  })
+  return kinds
+}
+
+function parsePromptBlock(content) {
+  var lines = String(content || '').split(/\r\n?|\n/)
+  var commands = []
+  var current = false
+  lines.forEach(function (line) {
+    var match = line.match(/^[$%>]\s+(.*)$/)
+    if (match) {
+      current = { command: match[1], output: [] }
+      commands.push(current)
+    } else if (current) {
+      current.output.push(line)
+    }
+  })
+  return commands.map(function (item) {
+    return { command: item.command, expected: item.output.join('\n') }
+  })
+}
+
+function runPromptCommand(command) {
+  var mergeStderrIntoStdout = '( ' + command + ' ) 2>&1'
+  return new Promise(function (resolve) {
+    child_process.exec(mergeStderrIntoStdout, function (error, stdout) {
+      resolve({
+        code: (error) ? ((typeof error.code === 'number') ? error.code : 1) : 0,
+        output: String((stdout === null || stdout === undefined) ? '' : stdout)
+      })
+    })
+  })
+}
+
+function checkPromptCommand(item, result) {
+  var actual = String(result.output).replace(/\n+$/, '')
+  var expected = String(item.expected).replace(/\n+$/, '')
+  if (result.code !== 0) {
+    return new Error('command `' + item.command + '` exited with code ' + result.code + (actual ? '\n' + actual : ''))
+  }
+  if (actual !== expected) {
+    return new Error([
+      'command `' + item.command + '` output did not match:',
+      '--- expected ---',
+      expected,
+      '--- actual ---',
+      actual
+    ].join('\n'))
+  }
+  return false
+}
+
+function evaluateShell(nodes, filePath, nonstop) {
+  return promiseSeries(nodes, function (node) {
+    logInfo(filePath, ['running', 'block', node.id].join(' '))
+    var commands = parsePromptBlock(node.content)
+    return promiseSeries(commands, function (item) {
+      return runPromptCommand(item.command).then(function (result) {
+        var error = checkPromptCommand(item, result)
+        if (error) {
+          if (!nonstop) throw error
+          logErr(error)
+          node.evalResult = error
+        }
+        return result
+      })
+    })
+    .then(function () {
+      if (!node.evalResult) node.evalResult = true
+      return node
+    })
+  })
+}
+
+function evaluateKind(kind, nodes, filePath, nonstop) {
+  if (kind === 'sh') return evaluateShell(nodes, filePath, nonstop)
+  return Promise.resolve([])
+}
+
+function evaluateAllKinds(data, pkg, prepend, nonstop, filePath) {
+  var runners = []
+  if (data.evalNodes.length) {
+    runners.push(function () {
+      return evaluateScope(data.evalNodes, data.markdownLines.length, pkg, prepend, nonstop, filePath, data.blockScope)
+    })
+  }
+  Object.keys(data.kindFences).forEach(function (kind) {
+    if (data.kindFences[kind].length) {
+      runners.push(function () {
+        return evaluateKind(kind, data.kindFences[kind], filePath, nonstop)
+      })
+    }
+  })
+  if (!runners.length) {
+    logInfo('no blocks to eval')
+    return Promise.resolve(false)
+  }
+  var results = []
+  return runners.reduce(function (chain, runner) {
+    return chain.then(function () {
+      return Promise.resolve(runner()).then(function (nodes) {
+        results = results.concat(nodes)
+      })
+    })
+  }, Promise.resolve()).then(function () {
+    return results
+  })
+}
+
+function assemble(filePath, pkg, prepend, blockScope, nonstop, preventEval, includePrevented, output, delimeter, evalLangs) {
   // get the markdown file contents
   return promiseRipple({
     markdown: function (data) {
@@ -696,7 +816,14 @@ function assemble(filePath, pkg, prepend, blockScope, nonstop, preventEval, incl
       // get all permitted blocks
       data.permittedFences = filterPrevented(data.allJsFences)
       // eval nodes
-      data.evalNodes = (includePrevented) ? data.allJsFences : data.permittedFences
+      data.kinds = normalizeKinds(evalLangs)
+      var evalJs = data.kinds.indexOf('js') !== -1
+      data.evalNodes = (evalJs) ? ((includePrevented) ? data.allJsFences : data.permittedFences) : []
+      data.kindFences = {}
+      data.kinds.forEach(function (kind) {
+        if (kind === 'js') return
+        data.kindFences[kind] = getNodeId(getFences(data.nodes, KIND_LANGS[kind] || [kind]), filePath)
+      })
       // get the blockscope
       data.blockScope = blockScope || Boolean(data.evalNodes.map(function (node) { return node.fileEval }).filter(function (fileEval) { return fileEval !== false }).length)
       return data
@@ -706,11 +833,7 @@ function assemble(filePath, pkg, prepend, blockScope, nonstop, preventEval, incl
         logInfo('eval prevented')
         return false
       }
-      if (!data.evalNodes.length) {
-        logInfo('no blocks to eval')
-        return false
-      }
-      return evaluateScope(data.evalNodes, data.markdownLines.length, pkg, prepend, nonstop, filePath, data.blockScope)
+      return evaluateAllKinds(data, pkg, prepend, nonstop, filePath)
     },
     outputed: function (data) {
       if (!output) {
@@ -740,6 +863,8 @@ module.exports.filterPrevented = filterPrevented;
 module.exports.buildPreserveLines = buildPreserveLines;
 module.exports.buildConcat = buildConcat;
 module.exports.getDeps = getDeps;
+module.exports.parsePromptBlock = parsePromptBlock;
+module.exports.evaluateShell = evaluateShell;
 module.exports.replacePosition = replacePosition;
 module.exports.regExpEscape = regExpEscape;
 module.exports.alterAssignedModule = alterAssignedModule;

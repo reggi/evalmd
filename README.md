@@ -45,6 +45,7 @@ Options:
   -s, --silent     Silence `evalmd` logging  [default: false]
   -u, --uniform    Does not use absolute urls when error logging  [default: false]
   -D, --debug      Debug Output  [default: false]
+  -e, --eval       Comma-separated list of block kinds to evaluate (e.g. js, sh)  [default: "js"]
   -h, --help       Show help  [boolean]
   --path           Prefix local module with path  [default: "./"]
   --package        Th path of a package.json  [default: "./package.json"]
@@ -60,7 +61,31 @@ Examples:
   evalmd <file(s)> -Pio   Outputs js file(s) with all block(s) (for linting)
   evalmd <file(s)> -Pob   Outputs block(s)
   evalmd <file(s)> -Piob  Outputs all blocks(s) (for linting)
+  evalmd <file(s)> --eval=js,sh  Evaluate js and sh block(s)
 ```
+
+## Block kinds
+
+By default `evalmd` evaluates `js` (and `javascript`) blocks. Use `--eval` to pick which fenced block kinds are evaluated, given as a comma-separated list - or by repeating the flag. Each kind is dispatched to its own evaluator, so more kinds can be added over time.
+
+    evalmd ./readme.md --eval=js,sh
+    evalmd ./readme.md --eval=js --eval=sh
+
+### `sh` blocks
+
+An `sh` block is one or more prompts and their expected output.
+A prompt line begins with `$`, `%`, or `>`;
+every line after it, up to the next prompt, is the command's expected combined `stdout`/`stderr` output.
+Each command must exit `0` and its output must match, otherwise `evalmd` exits non-zero.
+Multiple prompts per block are supported.
+
+    ```sh
+    > echo hello
+    hello
+    > node -e "console.log('a'); console.error('b')"
+    a
+    b
+    ```
 
 ## Testing
 

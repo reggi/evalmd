@@ -13,6 +13,7 @@ var argv = yargs
   .example('$0 <file(s)> -Pio', 'Outputs js file(s) with all block(s) (for linting)')
   .example('$0 <file(s)> -Pob', 'Outputs block(s)')
   .example('$0 <file(s)> -Piob', 'Outputs all blocks(s) (for linting)')
+  .example('$0 <file(s)> --eval=js,sh', 'Evaluate js and sh block(s)')
   .default('i', false)
   .alias('i', 'include')
   .describe('i', 'Includes prevented blocks')
@@ -40,6 +41,9 @@ var argv = yargs
   .default('D', false)
   .alias('D', 'debug')
   .describe('D', 'Debug Output')
+  .default('e', 'js')
+  .alias('e', 'eval')
+  .describe('e', 'Comma-separated list of block kinds to evaluate (e.g. js, sh)')
   .help('h')
   .alias('h', 'help')
   .describe('path', 'Prefix local module with path')
@@ -57,6 +61,8 @@ var files = argv._
 
 if (files.length) {
 
+  var evalLangs = String(argv.eval).split(',').map(function (kind) { return kind.trim() }).filter(Boolean)
+
   evalMarkdown(
     files,
     argv.package,
@@ -68,7 +74,8 @@ if (files.length) {
     argv.silent,
     argv.debug,
     argv.output,
-    argv.delimeter
+    argv.delimeter,
+    evalLangs
   ).then(function (report) {
     process.exit(report.exitCode)
   })
