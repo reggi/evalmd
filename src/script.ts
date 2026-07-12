@@ -44,6 +44,8 @@ var argv = yargs
   .default('e', 'js')
   .alias('e', 'eval')
   .describe('e', 'Comma-separated list of block kinds to evaluate (e.g. js, sh)')
+  .default('sloppy', false)
+  .describe('sloppy', 'Evaluate code in sloppy (non-strict) mode')
   .help('h')
   .alias('h', 'help')
   .describe('path', 'Prefix local module with path')
@@ -75,7 +77,8 @@ if (files.length) {
     argv.debug,
     argv.output,
     argv.delimeter,
-    evalLangs
+    evalLangs,
+    argv.sloppy
   ).then(function (report) {
     process.exit(report.exitCode)
   })

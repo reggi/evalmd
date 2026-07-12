@@ -25,6 +25,7 @@ var fs = {
 
 var log = false
 var DEBUG = false
+var SLOPPY = false
 
 /**
  * :fishing_pole_and_fish: Evaluates javascript code blocks from markdown files.
@@ -36,10 +37,11 @@ var DEBUG = false
  * @package.bin.eval-markdown ./bin/eval-markdown.js
  */
 
-function main (filePath$, packagePath, prepend, blockScope, nonstop, preventEval, includePrevented, silence, debug, output, delimeter, evalLangs) {
+function main (filePath$, packagePath, prepend, blockScope, nonstop, preventEval, includePrevented, silence, debug, output, delimeter, evalLangs, sloppy) {
   var logStore = []
   evalLangs = (evalLangs && evalLangs.length) ? evalLangs : ['js']
   DEBUG = debug
+  SLOPPY = sloppy
   log = logFactory(logStore, silence)
   var filePaths = flatten([filePath$])
   logInfo('it worked if it ends with', 'ok')
@@ -232,7 +234,7 @@ function buildConcat(node$, lines) {
 }
 
 function getDeps(code) {
-  var ast = acorn.parse(code, {sourceType: 'module', ecmaVersion: 6})
+  var ast = acorn.parse(code, {sourceType: SLOPPY ? 'script' : 'module', ecmaVersion: 6})
   var deps = umd(ast, {
     es6: true, amd: true, cjs: true
   })

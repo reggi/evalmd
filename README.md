@@ -46,6 +46,7 @@ Options:
   -u, --uniform    Does not use absolute urls when error logging  [default: false]
   -D, --debug      Debug Output  [default: false]
   -e, --eval       Comma-separated list of block kinds to evaluate (e.g. js, sh)  [default: "js"]
+  --sloppy         Evaluate code in sloppy (non-strict) mode  [default: false]
   -h, --help       Show help  [boolean]
   --path           Prefix local module with path  [default: "./"]
   --package        Th path of a package.json  [default: "./package.json"]
@@ -86,6 +87,12 @@ Multiple prompts per block are supported.
     a
     b
     ```
+
+## Sloppy mode
+
+Blocks are evaluated in strict mode by default. Pass `--sloppy` to evaluate in sloppy (non-strict) mode instead - for example, to use `with`.
+Sloppy blocks use CommonJS (`require`);
+ES `import`/`export` syntax is only available in the default strict mode.
 
 ## Testing
 
