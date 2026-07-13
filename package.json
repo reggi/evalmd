@@ -66,6 +66,7 @@
     "eslint": "^10.7.0",
     "qs": "^6.15.3",
     "qs-iconv": "^1.0.4",
+    "tape": "^5.10.2",
     "ts-node": "^7.0.1",
     "typescript": "^6.0.3"
   },
@@ -78,7 +79,8 @@
     "build": "tsc",
     "prepack": "npm run build",
     "pretests-only": "npm run build",
-    "tests-only": "npm run test-node",
+    "tests-only": "npm run test-node && npm run test-unit",
+    "test-unit": "tape -r ts-node/register/transpile-only 'test/**/*.js'",
     "posttests-only": "npm run test-tsnode",
     "lint": "eslint .",
     "pretest": "npm run lint",
