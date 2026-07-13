@@ -16,8 +16,8 @@ const umd = require('./acorn-umd/acorn-umd').default;
 const promiseRipple = require('./promise-ripple');
 const promiseSeries = require('./promise-series');
 const resolveParse = require('./eslint-parse');
+const createLogger = require('./log');
 // var _eval = require('eval')
-const chalk = require('chalk');
 const isCore = require('is-core-module');
 const temp = path.join(osTmpDir(), 'evalmd');
 
@@ -30,9 +30,7 @@ const fs = {
 
 /** @import { AssembleData, ConcatNode, Dep, EvalBuild, MdNode, Package, StackBuckets } from './types' */
 
-/** @type {false | ((data: string) => unknown)} */
-let log = false;
-let DEBUG = false;
+let logger = createLogger({ silence: true });
 let SLOPPY = false;
 /** @type {((code: string) => any) | false} */
 let CURRENT_PARSE = false;
@@ -438,72 +436,18 @@ function findErrorNode(nodes, line) {
 }
 
 /** @param {...any} args */
-function errMsg(...args) {
-  if (args.length > 1) { args[0] = chalk.magenta(args[0]); }
-  return [
-    chalk.white('evalmd'),
-    chalk.red('ERR!'),
-  ].concat(args).join(' ');
-}
-
-/** @param {...any} args */
-function infoMsg(...args) {
-  args[0] = chalk.magenta(args[0]);
-  return [
-    chalk.white('evalmd'),
-    chalk.green('info'),
-  ].concat(args).join(' ');
-}
-
-/** @param {...any} args */
-function debugMsg(...args) {
-  args[0] = chalk.magenta(args[0]);
-  return [
-    chalk.white('evalmd'),
-    chalk.blue('debug'),
-  ].concat(args).join(' ');
-}
-
-/** @param {unknown} errOrStack */
-function cleanStack(errOrStack) {
-  if (errOrStack instanceof Error && errOrStack.stack) { return String(errOrStack).split(/\r\n?|\n/); }
-  if (Array.isArray(errOrStack)) { return errOrStack; }
-  if (errOrStack) { return String(errOrStack).split(/\r\n?|\n/); }
-  return false;
-}
-
-/** @param {unknown} err */
-function logErr(err) {
-  const lines = cleanStack(err);
-  if (lines) {
-    lines.forEach((line) => log && log(errMsg(line)));
-  }
-  return lines;
-}
-
-/** @param {...any} args */
 function logInfo(...args) {
-  return log && log(infoMsg.apply(null, args));
+  return logger.info(...args);
 }
 
 /** @param {...any} args */
 function logDebug(...args) {
-  if (DEBUG) { return log && log(debugMsg.apply(null, args)); }
-  return undefined;
+  return logger.debug(...args);
 }
 
-/**
- * @param {string[] & { all?: string[] }} store
- * @param {boolean} silence
- */
-function logFactory(store, silence) {
-  return /** @param {string} data */ function (data) {
-    const colorLessData = chalk.stripColor(data);
-    if (!store.all) { store.all = []; }
-    store.push(colorLessData);
-    if (!silence) { return process.stderr.write(`${data}\n`); }
-    return undefined;
-  };
+/** @param {unknown} err */
+function logErr(err) {
+  return logger.err(err);
 }
 
 /**
@@ -1102,12 +1046,9 @@ function assemble(filePath, pkg, prepend, blockScope, nonstop, preventEval, incl
  * @param {boolean} useEslint
  */
 function main(filePath$, packagePath, prepend, blockScope, nonstop, preventEval, includePrevented, silence, debug, output, delimeter, evalLangs, sloppy, useEslint) {
-  /** @type {string[]} */
-  const logStore = [];
   evalLangs = (evalLangs && evalLangs.length) ? evalLangs : ['js'];
-  DEBUG = debug;
   SLOPPY = sloppy;
-  log = logFactory(logStore, silence);
+  logger = createLogger({ debug, silence });
   const filePaths = flatten([filePath$]);
   logInfo('it worked if it ends with', 'ok');
   return getPackage(packagePath)
@@ -1120,7 +1061,7 @@ function main(filePath$, packagePath, prepend, blockScope, nonstop, preventEval,
       return {
         dataSets: mdResults,
         exitCode,
-        log: logStore,
+        log: logger.store,
       };
     })
     .catch((error) => {
@@ -1167,14 +1108,9 @@ module.exports.buildEvalable = buildEvalable;
 module.exports.stackSplit = stackSplit;
 module.exports.stackJoin = stackJoin;
 module.exports.findErrorNode = findErrorNode;
-module.exports.errMsg = errMsg;
-module.exports.infoMsg = infoMsg;
-module.exports.debugMsg = debugMsg;
-module.exports.cleanStack = cleanStack;
 module.exports.logErr = logErr;
 module.exports.logInfo = logInfo;
 module.exports.logDebug = logDebug;
-module.exports.logFactory = logFactory;
 module.exports.acornError = acornError;
 module.exports.parseLineChar = parseLineChar;
 module.exports.getCleanLines = getCleanLines;
