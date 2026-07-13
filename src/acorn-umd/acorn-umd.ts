@@ -110,6 +110,7 @@ function findCJS(ast) {
   let requires = [];
 
   estraverse.traverse(ast, {
+    fallback: 'iteration',
     enter(node) {
       function checkRequire(expr) {
         if (expr && expr.type === 'MemberExpression') {

@@ -11,6 +11,7 @@ var acorn = require('acorn')
 var umd = require('./acorn-umd/acorn-umd').default
 var promiseRipple = require('./promise-ripple')
 var promiseSeries = require('./promise-series')
+var resolveParse = require('./eslint-parse')
 // var _eval = require('eval')
 var chalk = require('chalk')
 var isCore = require('is-core-module')
@@ -26,6 +27,7 @@ var fs = {
 var log = false
 var DEBUG = false
 var SLOPPY = false
+var CURRENT_PARSE = false
 
 /**
  * :fishing_pole_and_fish: Evaluates javascript code blocks from markdown files.
@@ -37,7 +39,7 @@ var SLOPPY = false
  * @package.bin.eval-markdown ./bin/eval-markdown.js
  */
 
-function main (filePath$, packagePath, prepend, blockScope, nonstop, preventEval, includePrevented, silence, debug, output, delimeter, evalLangs, sloppy) {
+function main (filePath$, packagePath, prepend, blockScope, nonstop, preventEval, includePrevented, silence, debug, output, delimeter, evalLangs, sloppy, useEslint) {
   var logStore = []
   evalLangs = (evalLangs && evalLangs.length) ? evalLangs : ['js']
   DEBUG = debug
@@ -48,7 +50,7 @@ function main (filePath$, packagePath, prepend, blockScope, nonstop, preventEval
   return getPackage(packagePath)
   .then(function (pkg) {
     return Promise.all(filePaths.map(function (filePath) {
-      return assemble(filePath, pkg, prepend, blockScope, nonstop, preventEval, includePrevented, output, delimeter, evalLangs)
+      return assemble(filePath, pkg, prepend, blockScope, nonstop, preventEval, includePrevented, output, delimeter, evalLangs, useEslint)
     }))
   })
   .then(function (mdResults) {
@@ -234,7 +236,7 @@ function buildConcat(node$, lines) {
 }
 
 function getDeps(code) {
-  var ast = acorn.parse(code, {sourceType: SLOPPY ? 'script' : 'module', ecmaVersion: 6})
+  var ast = CURRENT_PARSE ? CURRENT_PARSE(code) : acorn.parse(code, {sourceType: SLOPPY ? 'script' : 'module', ecmaVersion: 6})
   var deps = umd(ast, {
     es6: true, amd: true, cjs: true
   })
@@ -451,14 +453,12 @@ function logFactory(store, silence) {
 
 function acornError(nodes, filePath) {
   return function (e) {
-    if (!e.stack) return e
-    console.log(e)
-    var stack = e.stack
-    stack = stackSplit(stack)
+    if (!e.stack || !e.loc) return e
+    var stack = stackSplit(e.stack)
     var lineChar = [e.loc.line, ':', e.loc.column].join('')
     var errorNode = findErrorNode(nodes, e.loc.line)
     var absFilePath = path.resolve(filePath)
-    var line = ['    at ', absFilePath, ':', lineChar, ' {block ', errorNode.id, '}'].join('')
+    var line = ['    at ', absFilePath, ':', lineChar, errorNode ? ' {block ' + errorNode.id + '}' : ''].join('')
     stack.lines = [line]
     return stackJoin(stack)
   }
@@ -587,6 +587,7 @@ function evaluate(node, nodes, markdownLinesLength, pkg, prepend, nonstop, fileP
       logInfo(filePath, ['running', word, ids.join(', ')].join(' '))
     },
     evalCode: function (node) {
+      CURRENT_PARSE = (Array.isArray(node) ? (node[0] && node[0].parse) : node.parse) || false
       var stackWrapper = acornError(nodes, filePath)
       try {
         return buildEvalable(node, nodes, markdownLinesLength, pkg, prepend)
@@ -646,6 +647,7 @@ function outputCode(node, nodes, markdownLinesLength, pkg, prepend, nonstop, fil
       logInfo(filePath, ['outputting', word, ids.join(', ')].join(' '))
     },
     evalCode: function (node) {
+      CURRENT_PARSE = (Array.isArray(node) ? (node[0] && node[0].parse) : node.parse) || false
       var stackWrapper = acornError(nodes, filePath)
       try {
         return buildEvalable(node, nodes, markdownLinesLength, pkg, prepend)
@@ -796,7 +798,7 @@ function evaluateAllKinds(data, pkg, prepend, nonstop, filePath) {
   })
 }
 
-function assemble(filePath, pkg, prepend, blockScope, nonstop, preventEval, includePrevented, output, delimeter, evalLangs) {
+function assemble(filePath, pkg, prepend, blockScope, nonstop, preventEval, includePrevented, output, delimeter, evalLangs, useEslint) {
   // get the markdown file contents
   return promiseRipple({
     markdown: function (data) {
@@ -829,6 +831,15 @@ function assemble(filePath, pkg, prepend, blockScope, nonstop, preventEval, incl
       // get the blockscope
       data.blockScope = blockScope || Boolean(data.evalNodes.map(function (node) { return node.fileEval }).filter(function (fileEval) { return fileEval !== false }).length)
       return data
+    },
+    resolvedParsers: function (data) {
+      if (!useEslint) return false
+      return Promise.all(data.evalNodes.map(function (node) {
+        return resolveParse(filePath, String(node.id), process.cwd()).then(function (parse) {
+          node.parse = parse
+          return node.id
+        })
+      }))
     },
     evaluated: function (data) {
       if (preventEval) {

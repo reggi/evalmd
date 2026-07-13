@@ -47,6 +47,7 @@ Options:
   -D, --debug      Debug Output  [default: false]
   -e, --eval       Comma-separated list of block kinds to evaluate (e.g. js, sh)  [default: "js"]
   --sloppy         Evaluate code in sloppy (non-strict) mode  [default: false]
+  --eslint         Derive parser settings (ecmaVersion, sourceType, parser) from your eslint config per block  [default: false]
   -h, --help       Show help  [boolean]
   --path           Prefix local module with path  [default: "./"]
   --package        Th path of a package.json  [default: "./package.json"]
@@ -93,6 +94,14 @@ Multiple prompts per block are supported.
 Blocks are evaluated in strict mode by default. Pass `--sloppy` to evaluate in sloppy (non-strict) mode instead - for example, to use `with`.
 Sloppy blocks use CommonJS (`require`);
 ES `import`/`export` syntax is only available in the default strict mode.
+
+## eslint parser config
+
+Dependency detection parses each block with a fixed `ecmaVersion` by default, so modern syntax (object spread, etc.) can fail to parse. Pass `--eslint` to instead derive the parser settings from your own eslint config, per block.
+
+For each block, evalmd resolves the config for the virtual path `<file>.md/<n>.js` (where `<n>` is the block number), so eslint `overrides` (eslintrc) or `files` (flat config) that target `**/*.md/*.js` apply — the same convention as [`eslint-plugin-markdown`](https://github.com/eslint/eslint-plugin-markdown). This is how each block (or block kind) gets its own settings. eslint 8, 9, and 10 are supported, in both eslintrc and flat config.
+
+`--eslint` honors `ecmaVersion`, `sourceType`, and a configured `parser` (such as `@typescript-eslint/parser`). It requires `eslint` to be installed — evalmd does not depend on it, so nothing changes for users who don't pass `--eslint`.
 
 ## Testing
 

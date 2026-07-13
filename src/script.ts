@@ -46,6 +46,8 @@ var argv = yargs
   .describe('e', 'Comma-separated list of block kinds to evaluate (e.g. js, sh)')
   .default('sloppy', false)
   .describe('sloppy', 'Evaluate code in sloppy (non-strict) mode')
+  .default('eslint', false)
+  .describe('eslint', 'Derive parser settings (ecmaVersion, sourceType, parser) from your eslint config per block')
   .help('h')
   .alias('h', 'help')
   .describe('path', 'Prefix local module with path')
@@ -78,7 +80,8 @@ if (files.length) {
     argv.output,
     argv.delimeter,
     evalLangs,
-    argv.sloppy
+    argv.sloppy,
+    argv.eslint
   ).then(function (report) {
     process.exit(report.exitCode)
   })
