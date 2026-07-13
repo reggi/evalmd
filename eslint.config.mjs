@@ -69,7 +69,7 @@ export default [
   },
 
   {
-    files: ['./src/eval-markdown.js'],
+    files: ['./src/*.js'],
     rules: {
       'max-lines-per-function': 'off',
       'max-statements-per-line': ['error', { max: 2 }],
