@@ -10,7 +10,7 @@ assert.equal(1 + 1, 2)
 A shell block with a single prompt:
 
 ```sh
-> echo hello world
+> node -e "console.log('hello world')"
 hello world
 ```
 
@@ -25,21 +25,21 @@ two
 Multiple prompts in one block:
 
 ```sh
-> echo first
+> node -e "console.log('first')"
 first
-> echo second
+> node -e "console.log('second')"
 second
 ```
 
-Other prompt characters (`$` and `%`) work too:
+Other prompt characters (`$` and `%`), and multi-line output:
 
 ```sh
-$ printf 'a\nb\n'
+$ node -e "console.log('a\nb')"
 a
 b
 ```
 
 ```sh
-% echo percent
+% node -e "console.log('percent')"
 percent
 ```

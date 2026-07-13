@@ -724,8 +724,8 @@ function runPromptCommand(command) {
 }
 
 function checkPromptCommand(item, result) {
-  var actual = String(result.output).replace(/\n+$/, '')
-  var expected = String(item.expected).replace(/\n+$/, '')
+  var actual = String(result.output).replace(/\r\n/g, '\n').replace(/\n+$/, '')
+  var expected = String(item.expected).replace(/\r\n/g, '\n').replace(/\n+$/, '')
   if (result.code !== 0) {
     return new Error('command `' + item.command + '` exited with code ' + result.code + (actual ? '\n' + actual : ''))
   }

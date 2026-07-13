@@ -1,0 +1,22 @@
+name: 'Tests: windows'
+
+on: [pull_request, push]
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    uses: ljharb/actions/.github/workflows/node.yml@main
+    with:
+      range: '>= 4.2'
+      type: majors
+      os: windows-latest
+      command: npm run tests-only
+
+  node:
+    name: 'windows'
+    needs: [tests]
+    runs-on: ubuntu-latest
+    steps:
+      - run: true
