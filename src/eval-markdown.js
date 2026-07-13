@@ -247,6 +247,10 @@ function replacePosition(str, start, end, value) {
   return str.substr(0, start) + value + str.substr(end)
 }
 
+function toRequirePath(replacement) {
+  return replacement.split(path.sep).join('/')
+}
+
 function regExpEscape(s) {
   return s.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')
 }
@@ -266,9 +270,9 @@ function alterAssignedModule(code, prepend, pkg) {
       var start = chars + dep.source.start + 1
       var end = chars + dep.source.end - 1
       var absModule = path.dirname(path.resolve(pkg.path))
-      var replacement = (match[1]) ? path.join(absModule, match[1]) : absModule
+      var replacement = toRequirePath(match[1] ? path.join(absModule, match[1]) : absModule)
       code = replacePosition(code, start, end, replacement)
-      chars += Math.abs(replacement.length - dep.source.value.length)
+      chars += replacement.length - dep.source.value.length
     }
   })
   return code
@@ -286,9 +290,9 @@ function alterSelfModules(code, nodes) {
       if (node && node.fileCreated) {
         var start = chars + dep.source.start + 1
         var end = chars + dep.source.end - 1
-        var replacement = node.fileEvalHashPath
+        var replacement = toRequirePath(node.fileEvalHashPath)
         code = replacePosition(code, start, end, replacement)
-        chars += Math.abs(replacement.length - dep.source.value.length)
+        chars += replacement.length - dep.source.value.length
       }
     }
   })
@@ -309,9 +313,9 @@ function alterPrependModules(code, nodes, prepend) {
       if (!node) {
         var start = chars + dep.source.start + 1
         var end = chars + dep.source.end - 1
-        var replacement = path.resolve(path.join(prepend, dep.source.value))
+        var replacement = toRequirePath(path.resolve(path.join(prepend, dep.source.value)))
         code = replacePosition(code, start, end, replacement)
-        chars += Math.abs(replacement.length - dep.source.value.length)
+        chars += replacement.length - dep.source.value.length
       }
     }
   })
@@ -325,12 +329,12 @@ function alterNpmModules(code, nodes, prepend) {
   var nonNpm = /^.\.\/|^.\/|^\//
   var chars = 0
   deps.forEach(function (dep) {
-    if (dep.source.value && !dep.source.value.match(nonNpm) && !isCore(dep.source.value)) {
+    if (dep.source.value && !dep.source.value.match(nonNpm) && !isCore(dep.source.value) && !path.isAbsolute(dep.source.value)) {
       var start = chars + dep.source.start + 1
       var end = chars + dep.source.end - 1
-      var replacement = path.resolve(path.join(prepend, 'node_modules', dep.source.value))
+      var replacement = toRequirePath(path.resolve(path.join(prepend, 'node_modules', dep.source.value)))
       code = replacePosition(code, start, end, replacement)
-      chars += Math.abs(replacement.length - dep.source.value.length)
+      chars += replacement.length - dep.source.value.length
     }
   })
   return code
