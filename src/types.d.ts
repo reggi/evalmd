@@ -55,6 +55,11 @@ export interface Dep {
   };
 }
 
+export interface ParseOptions {
+  parse?: ((code: string) => any) | false;
+  sloppy?: boolean;
+}
+
 export interface MdNode {
   type?: string;
   tag?: string;

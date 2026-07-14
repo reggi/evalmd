@@ -8,8 +8,6 @@ const promisify = require('util.promisify');
 const nodeFs = require('fs');
 const mkdirp = require('mkdirp');
 const MarkdownIt = require('markdown-it');
-const acorn = require('acorn');
-const umd = require('./acorn-umd/acorn-umd').default;
 const promiseRipple = require('./promise-ripple');
 const promiseSeries = require('./promise-series');
 const resolveParse = require('./eslint-parse');
@@ -48,11 +46,15 @@ const {
 } = require('./shell-eval');
 const {
   replacePosition,
-  toRequirePath,
   regExpEscape,
+  getDeps,
+  alterAssignedModule,
+  alterSelfModules,
+  alterPrependModules,
+  alterNpmModules,
+  alterModules,
+  buildEvalable,
 } = require('./module-rewrite');
-// var _eval = require('eval')
-const isCore = require('is-core-module');
 const temp = path.join(osTmpDir(), 'evalmd');
 
 const fs = {
@@ -62,11 +64,7 @@ const fs = {
   unlinkAsync: promisify(nodeFs.unlink),
 };
 
-/** @import { AssembleData, ConcatNode, Dep, EvalBuild, MdNode, Package } from './types' */
-
-let SLOPPY = false;
-/** @type {((code: string) => any) | false} */
-let CURRENT_PARSE = false;
+/** @import { AssembleData, ConcatNode, MdNode, Package } from './types' */
 
 /** @param {readonly AssembleData[]} mdResults */
 function getExitCode(mdResults) {
@@ -88,167 +86,6 @@ function getPackage(packagePath) {
       return pkg;
     })
     .catch(() => false);
-}
-
-/**
- * @param {string} code
- * @returns {readonly Dep[]}
- */
-function getDeps(code) {
-  // eslint-disable-next-line new-cap
-  const ast = CURRENT_PARSE ? CURRENT_PARSE(code) : acorn.parse(code, { sourceType: SLOPPY ? 'script' : 'module', ecmaVersion: 6 });
-  const deps = umd(ast, {
-    es6: true, amd: true, cjs: true,
-  });
-  return Array.from(new Set(deps)).map((dep) => {
-    const source = dep.source;
-    return {
-      source: {
-        value: String(source && 'value' in source ? source.value : ''),
-        start: source ? source.start : 0,
-        end: source ? source.end : 0,
-      },
-    };
-  });
-}
-
-/**
- * @param {string} code
- * @param {string} _prepend
- * @param {Package | false} pkg
- */
-function alterAssignedModule(code, _prepend, pkg) {
-  if (!pkg) { return code; }
-  const deps = getDeps(code);
-  if (!deps.length) { return code; }
-  let name = pkg.name;
-  let chars = 0;
-  name = regExpEscape(name);
-  const pattern = new RegExp(`^${name}($|/.*)`);
-  deps.forEach((dep) => {
-    const match = dep.source.value.match(pattern);
-    if (match) {
-      const start = chars + dep.source.start + 1;
-      const end = chars + dep.source.end - 1;
-      const absModule = path.dirname(path.resolve(pkg.path));
-      const replacement = toRequirePath(match[1] ? path.join(absModule, match[1]) : absModule);
-      code = replacePosition(code, start, end, replacement);
-      chars += replacement.length - dep.source.value.length;
-    }
-  });
-  return code;
-}
-
-/**
- * @param {string} code
- * @param {readonly MdNode[]} nodes
- */
-function alterSelfModules(code, nodes) {
-  const deps = getDeps(code);
-  if (!deps.length) { return code; }
-  let chars = 0;
-  deps.forEach((dep) => {
-    if (dep.source.value) {
-      const node = nodes.find((node) => node.fileEval === dep.source.value);
-      if (node && node.fileCreated) {
-        const start = chars + dep.source.start + 1;
-        const end = chars + dep.source.end - 1;
-        const replacement = toRequirePath(node.fileEvalHashPath);
-        code = replacePosition(code, start, end, replacement);
-        chars += replacement.length - dep.source.value.length;
-      }
-    }
-  });
-  return code;
-}
-
-/**
- * @param {string} code
- * @param {readonly MdNode[]} nodes
- * @param {string} prepend
- */
-function alterPrependModules(code, nodes, prepend) {
-  const deps = getDeps(code);
-  if (!deps.length) { return code; }
-  prepend = (prepend) ? prepend : './';
-  const localRegex = /^.\.\/|^.\//;
-  let chars = 0;
-  deps.forEach((dep) => {
-    if (dep.source.value && dep.source.value.match(localRegex)) {
-      const node = nodes.find((node) => node.fileEval === dep.source.value);
-      if (!node) {
-        const start = chars + dep.source.start + 1;
-        const end = chars + dep.source.end - 1;
-        const replacement = toRequirePath(path.resolve(path.join(prepend, dep.source.value)));
-        code = replacePosition(code, start, end, replacement);
-        chars += replacement.length - dep.source.value.length;
-      }
-    }
-  });
-  return code;
-}
-
-/**
- * @param {string} code
- * @param {readonly MdNode[]} _nodes
- * @param {string} prepend
- */
-function alterNpmModules(code, _nodes, prepend) {
-  const deps = getDeps(code);
-  if (!deps.length) { return code; }
-  prepend = (prepend) ? prepend : './';
-  const nonNpm = /^.\.\/|^.\/|^\//;
-  let chars = 0;
-  deps.forEach((dep) => {
-    if (dep.source.value && !dep.source.value.match(nonNpm) && !isCore(dep.source.value) && !path.isAbsolute(dep.source.value)) {
-      const start = chars + dep.source.start + 1;
-      const end = chars + dep.source.end - 1;
-      const replacement = toRequirePath(path.resolve(path.join(prepend, 'node_modules', dep.source.value)));
-      code = replacePosition(code, start, end, replacement);
-      chars += replacement.length - dep.source.value.length;
-    }
-  });
-  return code;
-}
-
-/**
- * @param {string} code
- * @param {readonly MdNode[]} nodes
- * @param {Package | false} pkg
- * @param {string} prepend
- */
-function alterModules(code, nodes, pkg, prepend) {
-  /*
-   * syntax errors will come through to here and
-   * get thrown by the acorn parser
-   */
-  code = alterAssignedModule(code, prepend, pkg);
-  code = alterSelfModules(code, nodes);
-  code = alterPrependModules(code, nodes, prepend);
-  code = alterNpmModules(code, nodes, prepend);
-  return code;
-}
-
-/**
- * @param {MdNode | readonly MdNode[]} node
- * @param {readonly MdNode[]} nodes
- * @param {number} markdownLinesLength
- * @param {Package | false} pkg
- * @param {string} prepend
- * @returns {EvalBuild}
- */
-function buildEvalable(node, nodes, markdownLinesLength, pkg, prepend) {
-  const preserve = buildPreserveLines(node, markdownLinesLength);
-  const concat = buildConcat(node);
-  // if there is an error have preserve run first to return line number
-  const preserveAlter = alterModules(preserve, nodes, pkg, prepend);
-  const concatAlter = alterModules(concat, nodes, pkg, prepend);
-  return {
-    preserve,
-    concat,
-    preserveAlter,
-    concatAlter,
-  };
 }
 
 /**
@@ -320,6 +157,7 @@ function nonstopErr(error, stackWrapper, nonstop, logger) {
  * @param {boolean} nonstop
  * @param {string} filePath
  * @param {ReturnType<typeof createLogger>} logger
+ * @param {boolean} sloppy
  * @returns {Promise<T>}
  */
 function evaluate(
@@ -330,7 +168,8 @@ function evaluate(
   prepend,
   nonstop,
   filePath,
-  logger
+  logger,
+  sloppy
 ) {
   return promiseRipple(node, {
     notice(node) {
@@ -341,10 +180,10 @@ function evaluate(
       ].join(' '));
     },
     evalCode(node) {
-      CURRENT_PARSE = (Array.isArray(node) ? (node[0] && node[0].parse) : node.parse) || false;
+      const parse = (Array.isArray(node) ? (node[0] && node[0].parse) : node.parse) || false;
       const stackWrapper = acornError(nodes, filePath);
       try {
-        return buildEvalable(node, nodes, markdownLinesLength, pkg, prepend);
+        return buildEvalable(node, nodes, markdownLinesLength, pkg, prepend, { parse, sloppy });
       } catch (error) {
         return nonstopErr(error, stackWrapper, nonstop, logger);
       }
@@ -388,6 +227,7 @@ function evaluate(
  * @param {string} filePath
  * @param {boolean} blockScope
  * @param {ReturnType<typeof createLogger>} logger
+ * @param {boolean} sloppy
  */
 function evaluateScope(
   nodes,
@@ -397,12 +237,13 @@ function evaluateScope(
   nonstop,
   filePath,
   blockScope,
-  logger
+  logger,
+  sloppy
 ) {
   if (blockScope) {
-    return promiseSeries(nodes, (node, _index, nodes) => evaluate(node, nodes, markdownLinesLength, pkg, prepend, nonstop, filePath, logger));
+    return promiseSeries(nodes, (node, _index, nodes) => evaluate(node, nodes, markdownLinesLength, pkg, prepend, nonstop, filePath, logger, sloppy));
   }
-  return evaluate(nodes, nodes, markdownLinesLength, pkg, prepend, nonstop, filePath, logger)
+  return evaluate(nodes, nodes, markdownLinesLength, pkg, prepend, nonstop, filePath, logger, sloppy)
     .then((node) => [node]);
 
 }
@@ -419,6 +260,7 @@ function evaluateScope(
  * @param {string | boolean} output
  * @param {string | boolean} delimeter
  * @param {ReturnType<typeof createLogger>} logger
+ * @param {boolean} sloppy
  * @returns {Promise<T>}
  */
 function outputCode(
@@ -431,7 +273,8 @@ function outputCode(
   filePath,
   output,
   delimeter,
-  logger
+  logger,
+  sloppy
 ) {
   return promiseRipple(node, {
     notice(node) {
@@ -442,10 +285,10 @@ function outputCode(
       ].join(' '));
     },
     evalCode(node) {
-      CURRENT_PARSE = (Array.isArray(node) ? (node[0] && node[0].parse) : node.parse) || false;
+      const parse = (Array.isArray(node) ? (node[0] && node[0].parse) : node.parse) || false;
       const stackWrapper = acornError(nodes, filePath);
       try {
-        return buildEvalable(node, nodes, markdownLinesLength, pkg, prepend);
+        return buildEvalable(node, nodes, markdownLinesLength, pkg, prepend, { parse, sloppy });
       } catch (error) {
         return nonstopErr(error, stackWrapper, nonstop, logger);
       }
@@ -474,6 +317,7 @@ function outputCode(
  * @param {string | boolean} output
  * @param {string | boolean} delimeter
  * @param {ReturnType<typeof createLogger>} logger
+ * @param {boolean} sloppy
  */
 function outputScope(
   nodes,
@@ -485,12 +329,13 @@ function outputScope(
   blockScope,
   output,
   delimeter,
-  logger
+  logger,
+  sloppy
 ) {
   if (blockScope) {
-    return promiseSeries(nodes, (node, _index, nodes) => outputCode(node, nodes, markdownLinesLength, pkg, prepend, nonstop, filePath, output, delimeter, logger));
+    return promiseSeries(nodes, (node, _index, nodes) => outputCode(node, nodes, markdownLinesLength, pkg, prepend, nonstop, filePath, output, delimeter, logger, sloppy));
   }
-  return outputCode(nodes, nodes, markdownLinesLength, pkg, prepend, nonstop, filePath, output, delimeter, logger)
+  return outputCode(nodes, nodes, markdownLinesLength, pkg, prepend, nonstop, filePath, output, delimeter, logger, sloppy)
     .then((node) => [node]);
 
 }
@@ -542,15 +387,16 @@ function evaluateKind(kind, nodes, filePath, nonstop, logger) {
  * @param {boolean} nonstop
  * @param {string} filePath
  * @param {ReturnType<typeof createLogger>} logger
+ * @param {boolean} sloppy
  */
-function evaluateAllKinds(data, pkg, prepend, nonstop, filePath, logger) {
+function evaluateAllKinds(data, pkg, prepend, nonstop, filePath, logger, sloppy) {
   /** @type {(() => unknown)[]} */
   const runners = [];
   const evalNodes = data.evalNodes || [];
   const markdownLinesLength = (data.markdownLines || []).length;
   const kindFences = data.kindFences || {};
   if (evalNodes.length) {
-    runners.push(() => evaluateScope(evalNodes, markdownLinesLength, pkg, prepend, nonstop, filePath, Boolean(data.blockScope), logger));
+    runners.push(() => evaluateScope(evalNodes, markdownLinesLength, pkg, prepend, nonstop, filePath, Boolean(data.blockScope), logger, sloppy));
   }
   Object.keys(kindFences).forEach((kind) => {
     if (kindFences[kind].length) {
@@ -581,9 +427,10 @@ function evaluateAllKinds(data, pkg, prepend, nonstop, filePath, logger) {
  * @param {readonly string[]} evalLangs
  * @param {boolean} useEslint
  * @param {ReturnType<typeof createLogger>} logger
+ * @param {boolean} sloppy
  * @returns {Promise<AssembleData>}
  */
-function assemble(filePath, pkg, prepend, blockScope, nonstop, preventEval, includePrevented, output, delimeter, evalLangs, useEslint, logger) {
+function assemble(filePath, pkg, prepend, blockScope, nonstop, preventEval, includePrevented, output, delimeter, evalLangs, useEslint, logger, sloppy) {
   // get the markdown file contents
   /** @type {AssembleData} */
   const initial = {};
@@ -637,7 +484,7 @@ function assemble(filePath, pkg, prepend, blockScope, nonstop, preventEval, incl
         logger.info('eval prevented');
         return false;
       }
-      return evaluateAllKinds(data, pkg, prepend, nonstop, filePath, logger);
+      return evaluateAllKinds(data, pkg, prepend, nonstop, filePath, logger, sloppy);
     },
     /** @param {AssembleData} data */
     outputed(data) {
@@ -645,7 +492,7 @@ function assemble(filePath, pkg, prepend, blockScope, nonstop, preventEval, incl
         return false;
       }
       if (!data.evalNodes || !data.markdownLines) { return false; }
-      return outputScope(data.evalNodes, data.markdownLines.length, pkg, prepend, nonstop, filePath, Boolean(data.blockScope), output, delimeter, logger);
+      return outputScope(data.evalNodes, data.markdownLines.length, pkg, prepend, nonstop, filePath, Boolean(data.blockScope), output, delimeter, logger, sloppy);
     },
   });
 }
@@ -675,12 +522,11 @@ function assemble(filePath, pkg, prepend, blockScope, nonstop, preventEval, incl
  */
 function main(filePath$, packagePath, prepend, blockScope, nonstop, preventEval, includePrevented, silence, debug, output, delimeter, evalLangs, sloppy, useEslint) {
   evalLangs = (evalLangs && evalLangs.length) ? evalLangs : ['js'];
-  SLOPPY = sloppy;
   const logger = createLogger({ debug, silence });
   const filePaths = flatten([filePath$]);
   logger.info('it worked if it ends with', 'ok');
   return getPackage(packagePath)
-    .then((pkg) => Promise.all(filePaths.map((filePath) => assemble(filePath, pkg, prepend, blockScope, nonstop, preventEval, includePrevented, output, delimeter, evalLangs, useEslint, logger))))
+    .then((pkg) => Promise.all(filePaths.map((filePath) => assemble(filePath, pkg, prepend, blockScope, nonstop, preventEval, includePrevented, output, delimeter, evalLangs, useEslint, logger, sloppy))))
     .then((mdResults) => {
     // console.log(mdResults)
       const exitCode = getExitCode(mdResults);
