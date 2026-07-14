@@ -60,6 +60,8 @@ export interface ParseOptions {
   sloppy?: boolean;
 }
 
+export type Logger = ReturnType<typeof import('./log')>;
+
 export interface MdNode {
   type?: string;
   tag?: string;
