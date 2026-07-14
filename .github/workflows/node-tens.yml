@@ -11,7 +11,9 @@ jobs:
     with:
       range: '>= 10 < 20'
       type: majors
-      command: npm run tests-only
+      build-command: npm run build
+      build-output-dir: dist
+      command: npm run tests-only --ignore-scripts
 
   node:
     name: 'node 10 - 20'
