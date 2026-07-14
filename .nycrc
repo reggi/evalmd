@@ -1,7 +1,7 @@
 {
 	"all": true,
 	"include": [
-		"src/**/*.js"
+		"dist-test/src/**/*.js"
 	],
 	"reporter": [
 		"html",
@@ -10,6 +10,8 @@
 	],
 	"exclude": [
 		"coverage",
+		"dist-test/src/acorn-umd",
+		"dist-test/src/script.js",
 		"eslint.config.mjs",
 		"test"
 	]

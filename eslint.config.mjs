@@ -48,7 +48,11 @@ Object.entries(tsPlugin.rules).forEach(([name, rule]) => {
 
 export default [
   {
-    ignores: ['dist/'],
+    ignores: [
+      'dist/',
+      'dist-test/',
+      'coverage/',
+    ],
   },
 
   ...ljharbConfig,

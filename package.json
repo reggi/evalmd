@@ -68,7 +68,6 @@
     "qs": "^6.15.3",
     "qs-iconv": "^1.0.4",
     "tape": "^5.10.2",
-    "ts-node": "^7.0.1",
     "typescript": "^6.0.3"
   },
   "bin": {
@@ -78,17 +77,16 @@
   },
   "scripts": {
     "build": "tsc",
+    "postbuild": "tsc -p tsconfig.test.json",
     "prepack": "npm run build",
     "pretests-only": "npm run build",
     "tests-only": "npm run test-node && npm run test-unit",
-    "test-unit": "nyc tape -r ts-node/register/transpile-only 'test/**/*.js'",
-    "posttests-only": "npm run test-tsnode",
+    "test-unit": "nyc tape 'dist-test/test/**/*.test.js'",
     "lint": "eslint .",
     "pretest": "npm run lint",
     "test": "npm run tests-only",
     "posttest": "npx npm@\">= 10.2\" audit --production",
     "test-node": "node ./dist/script.js ./test-readmes/qs.md ./test-readmes/fence-spaces.md ./test-readmes/win.md && node ./dist/script.js ./test-readmes/sh.md --eval=js,sh && node ./dist/script.js ./test-readmes/sloppy.md --sloppy",
-    "test-tsnode": "ts-node --files ./src/script.ts ./test-readmes/qs.md ./test-readmes/fence-spaces.md ./test-readmes/win.md && ts-node --files ./src/script.ts ./test-readmes/sh.md --eval=js,sh && ts-node --files ./src/script.ts ./test-readmes/sloppy.md --sloppy",
     "dependencies": "DT_CLEAN_NPM_COMMAND=\"$npm_command\" npx dt-clean@^1.2.0 --auto"
   },
   "engines": {

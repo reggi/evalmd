@@ -13,7 +13,9 @@ jobs:
       type: majors
       os: windows-latest
       build-command: npm run build
-      build-output-dir: dist
+      build-output-dir: |
+        dist
+        dist-test
       command: npm run tests-only --ignore-scripts
 
   node:

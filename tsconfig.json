@@ -20,5 +20,5 @@
     "outDir": "./dist",
     "maxNodeModuleJsDepth": 0
   },
-  "exclude": ["coverage", "dist", "eslint.config.mjs", "test"]
+  "exclude": ["coverage", "dist", "dist-test", "eslint.config.mjs", "test"]
 }

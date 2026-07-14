@@ -11,3 +11,9 @@ yarn-error.log
 .github/workflows
 
 types
+
+dist-test
+coverage
+.nyc_output
+.nycrc
+tsconfig.test.json
