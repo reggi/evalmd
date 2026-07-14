@@ -46,3 +46,12 @@ test('evaluateKind resolves to an empty list for a non-shell kind', (t) => {
     t.end();
   });
 });
+
+test('evalError passes through non-errors and rewrites error stacks', (t) => {
+  const wrap = evalRun.evalError('/abs/x.md', []);
+  t.equal(wrap(42), 42, 'a non-Error is returned unchanged');
+  const err = new Error('boom');
+  err.stack = 'Error: boom\n    at /tmp/none.js:1:1\n';
+  t.equal(typeof wrap(err), 'string', 'an Error stack is rewritten and a trailing blank frame trimmed');
+  t.end();
+});

@@ -61,3 +61,51 @@ test('alterNpmModules rewrites a bare npm specifier to a node_modules path', (t)
   t.equal(actual, expected, 'the module name becomes an absolute node_modules path');
   t.end();
 });
+
+test('alterAssignedModule rewrites the package self-reference to a filesystem path', (t) => {
+  const pkg = { name: 'mypkg', path: '/proj/package.json' };
+  const abs = path.dirname(path.resolve(pkg.path));
+  t.equal(mr.alterAssignedModule("require('mypkg/sub')", '', pkg), `require('${mr.toRequirePath(path.join(abs, '/sub'))}')`, 'the self-name becomes an absolute path');
+  t.equal(mr.alterAssignedModule("require('x')", '', false), "require('x')", 'no package leaves the code untouched');
+  t.equal(mr.alterAssignedModule('var x = 1;', '', pkg), 'var x = 1;', 'code with no deps is untouched');
+  t.end();
+});
+
+test('alterSelfModules rewrites requires that point at other evaluated blocks', (t) => {
+  const created = [{ fileEval: './other', fileCreated: true, fileEvalHashPath: '/tmp/other.js' }];
+  t.equal(mr.alterSelfModules("require('./other')", created), `require('${mr.toRequirePath('/tmp/other.js')}')`, 'a sibling block require points at its temp file');
+  t.equal(mr.alterSelfModules("require('./other')", [{ fileEval: './other', fileCreated: false }]), "require('./other')", 'an uncreated block is left alone');
+  t.end();
+});
+
+test('alterPrependModules resolves local requires against the prepend path', (t) => {
+  t.equal(mr.alterPrependModules("require('./local')", [], '/proj'), `require('${mr.toRequirePath(path.resolve(path.join('/proj', './local')))}')`, 'a local require resolves against prepend');
+  t.equal(mr.alterPrependModules("require('lodash')", [], '/proj'), "require('lodash')", 'a bare specifier is not a local require');
+  t.end();
+});
+
+test('the alter functions skip requires that should not be rewritten', (t) => {
+  t.equal(mr.alterNpmModules("require('fs')", [], '/proj'), "require('fs')", 'core modules are left alone');
+  t.equal(mr.alterNpmModules("require('./local')", [], '/proj'), "require('./local')", 'local requires are not npm modules');
+  const nodes = [{ fileEval: './sib', fileCreated: true, fileEvalHashPath: '/t/s.js' }];
+  t.equal(mr.alterPrependModules("require('./sib')", nodes, '/proj'), "require('./sib')", 'a require mapping to a known block is left for alterSelfModules');
+  t.end();
+});
+
+test('the alter functions handle exact names, absolutes, and default prepends', (t) => {
+  const pkg = { name: 'mypkg', path: '/proj/package.json' };
+  t.equal(mr.alterAssignedModule("require('mypkg')", '', pkg), `require('${mr.toRequirePath(path.dirname(path.resolve(pkg.path)))}')`, 'an exact package name maps to the module directory');
+  t.equal(mr.alterSelfModules("require('./x')", [{ fileEval: './other', fileCreated: true }]), "require('./x')", 'a require with no matching block is left alone');
+  t.equal(mr.alterNpmModules("require('/abs/mod')", [], '/proj'), "require('/abs/mod')", 'an absolute require is left alone');
+  t.match(mr.alterNpmModules("require('lodash')", [], ''), /node_modules\/lodash/, 'an empty prepend defaults to the cwd for npm modules');
+  t.match(mr.alterPrependModules("require('./x')", [], ''), /\/x'\)$/, 'an empty prepend defaults to the cwd for locals');
+  t.end();
+});
+
+test('buildEvalable builds the preserve/concat variants and rewrites their modules', (t) => {
+  const node = { content: "require('lodash');", startLine: 0 };
+  const build = mr.buildEvalable(node, [], 1, false, '/proj');
+  t.equal(build.concat, "require('lodash');", 'concat holds the raw content');
+  t.match(build.concatAlter, /node_modules\/lodash/, 'concatAlter rewrites the npm require');
+  t.end();
+});

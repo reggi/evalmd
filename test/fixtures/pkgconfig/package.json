@@ -1,0 +1,4 @@
+{
+  "name": "pkgcfg",
+  "eslintConfig": { "root": true }
+}

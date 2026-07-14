@@ -48,3 +48,29 @@ test('checkPromptCommand returns an Error on mismatched output', (t) => {
   t.match(err.message, /did not match/, 'reports a mismatch');
   t.end();
 });
+
+test('parsePromptBlock treats missing content as no commands', (t) => {
+  t.deepEqual(shell.parsePromptBlock(), [], 'undefined content yields no commands');
+  t.end();
+});
+
+test('checkPromptCommand omits empty output from the exit-code error', (t) => {
+  const err = shell.checkPromptCommand({ command: 'x', expected: 'y' }, { code: 2, output: '' });
+  t.equal(err.message, 'command `x` exited with code 2', 'no output is appended when there is none');
+  t.end();
+});
+
+test('runPromptCommand captures stdout and a zero exit code on success', (t) => {
+  shell.runPromptCommand('node -e "process.stdout.write(String(21))"').then((result) => {
+    t.equal(result.code, 0, 'a successful command exits 0');
+    t.equal(result.output, '21', 'captures stdout');
+    t.end();
+  });
+});
+
+test('runPromptCommand reports the non-zero exit code on failure', (t) => {
+  shell.runPromptCommand('node -e "process.exit(3)"').then((result) => {
+    t.equal(result.code, 3, 'a failing command reports its exit code');
+    t.end();
+  });
+});
