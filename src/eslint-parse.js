@@ -18,10 +18,15 @@ var RC_NAMES = [
   '.eslintrc'
 ]
 
+/**
+ * @param {string} id
+ * @param {string} cwd
+ */
 function resolveFrom(id, cwd) {
   return require.resolve(id, { paths: [cwd, __dirname] })
 }
 
+/** @param {string} cwd */
 function loadEslint(cwd) {
   var resolved
   try {
@@ -32,10 +37,12 @@ function loadEslint(cwd) {
   return require(resolved)
 }
 
+/** @param {string} cwd */
 function eslintMajor(cwd) {
   return parseInt(String(require(resolveFrom('eslint/package.json', cwd)).version).split('.')[0], 10)
 }
 
+/** @param {string} cwd */
 function useAtYourOwnRisk(cwd) {
   try {
     return require(resolveFrom('eslint/use-at-your-own-risk', cwd))
@@ -44,11 +51,13 @@ function useAtYourOwnRisk(cwd) {
   }
 }
 
+/** @param {string} cwd */
 function loadEspree(cwd) {
   var eslintDir = path.dirname(resolveFrom('eslint/package.json', cwd))
   return require(require.resolve('espree', { paths: [eslintDir] }))
 }
 
+/** @param {string} fromDir */
 function detectFormat(fromDir) {
   var dir = fromDir
   for (;;) {
@@ -70,6 +79,10 @@ function detectFormat(fromDir) {
   }
 }
 
+/**
+ * @param {string} format
+ * @param {string} cwd
+ */
 function eslintClass(format, cwd) {
   var eslint = loadEslint(cwd)
   var major = eslintMajor(cwd)
@@ -80,6 +93,7 @@ function eslintClass(format, cwd) {
   return (major >= 9) ? eslint.ESLint : (legacy.FlatESLint || eslint.ESLint)
 }
 
+/** @param {any} ast */
 function normalizeNodePositions(ast) {
   var stack = [ast]
   while (stack.length) {
@@ -91,9 +105,12 @@ function normalizeNodePositions(ast) {
     if (node && typeof node === 'object') {
       Object.keys(node).forEach(function (key) {
         if (key === 'parent') { return }
+        /** @type {any} */
         var value = node[key]
-        if (Array.isArray(value)) {
-          value.forEach(function (item) { stack.push(item) })
+        /** @type {boolean} */
+        var valueIsArray = Array.isArray(value)
+        if (valueIsArray) {
+          value.forEach(/** @param {any} item */ function (item) { stack.push(item) })
         } else if (value && typeof value === 'object' && typeof value.type === 'string') {
           stack.push(value)
         }
@@ -103,6 +120,10 @@ function normalizeNodePositions(ast) {
   return ast
 }
 
+/**
+ * @param {any} config
+ * @param {string} cwd
+ */
 function parserFor(config, cwd) {
   var languageOptions = config.languageOptions
   if (languageOptions) {
@@ -116,11 +137,15 @@ function parserFor(config, cwd) {
   return { parser: rcParser, options: Object.assign({}, config.parserOptions) }
 }
 
+/**
+ * @param {any} config
+ * @param {string} cwd
+ */
 function toParseFn(config, cwd) {
   var resolved = parserFor(config, cwd)
   var parser = resolved.parser
   var options = resolved.options
-  return function (code) {
+  return /** @param {string} code */ function (code) {
     var result = parser.parseForESLint
       ? parser.parseForESLint(code, options)
       : { ast: parser.parse(code, options) }
@@ -128,6 +153,11 @@ function toParseFn(config, cwd) {
   }
 }
 
+/**
+ * @param {string} filePath
+ * @param {string} blockId
+ * @param {string} cwd
+ */
 function resolveParse(filePath, blockId, cwd) {
   var absMarkdown = path.resolve(cwd, filePath)
   var virtualPath = path.join(absMarkdown, blockId + '.js')

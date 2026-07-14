@@ -82,10 +82,10 @@ if (files.length) {
     evalLangs,
     argv.sloppy,
     argv.eslint
-  ).then(function (report) {
+  ).then((report: { exitCode: number }) => {
     process.exit(report.exitCode)
   })
-  .catch(function (e) {
+  .catch(() => {
     process.exit(1)
   })
 

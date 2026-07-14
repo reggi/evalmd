@@ -9,3 +9,5 @@ node_modules
 yarn-error.log
 
 .github/workflows
+
+types

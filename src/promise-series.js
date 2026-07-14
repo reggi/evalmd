@@ -2,7 +2,13 @@
 
 const arrayWith = require('array.prototype.with');
 
-function promiseSeries (arr, cb) {
+/**
+ * @template T
+ * @param {readonly T[]} arr
+ * @param {(action: T, count: number, arrActive: readonly T[]) => T | Promise<T>} cb
+ * @returns {Promise<readonly T[]>}
+ */
+function promiseSeries(arr, cb) {
   var count = 0
   return arr.reduce(function (acc, action) {
     return acc.then(function (arrActive) {

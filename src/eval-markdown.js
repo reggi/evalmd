@@ -24,9 +24,13 @@ var fs = {
   unlinkAsync: promisify(nodeFs.unlink)
 }
 
+/** @import { AssembleData, ConcatNode, Dep, EvalBuild, MdNode, Package, StackBuckets } from './types' */
+
+/** @type {false | ((data: string) => unknown)} */
 var log = false
 var DEBUG = false
 var SLOPPY = false
+/** @type {((code: string) => any) | false} */
 var CURRENT_PARSE = false
 
 /**
@@ -37,9 +41,24 @@ var CURRENT_PARSE = false
  * @package.bin.evalmd ./bin/eval-markdown.js
  * @package.bin.test-markdown ./bin/eval-markdown.js
  * @package.bin.eval-markdown ./bin/eval-markdown.js
+ * @param {string | readonly string[]} filePath$
+ * @param {string} packagePath
+ * @param {string} prepend
+ * @param {boolean} blockScope
+ * @param {boolean} nonstop
+ * @param {boolean} preventEval
+ * @param {boolean} includePrevented
+ * @param {boolean} silence
+ * @param {boolean} debug
+ * @param {string | boolean} output
+ * @param {string | boolean} delimeter
+ * @param {readonly string[]} evalLangs
+ * @param {boolean} sloppy
+ * @param {boolean} useEslint
  */
 
 function main (filePath$, packagePath, prepend, blockScope, nonstop, preventEval, includePrevented, silence, debug, output, delimeter, evalLangs, sloppy, useEslint) {
+  /** @type {string[]} */
   var logStore = []
   evalLangs = (evalLangs && evalLangs.length) ? evalLangs : ['js']
   DEBUG = debug
@@ -76,6 +95,7 @@ function main (filePath$, packagePath, prepend, blockScope, nonstop, preventEval
   })
 }
 
+/** @param {readonly AssembleData[]} mdResults */
 function getExitCode(mdResults) {
   var evaluations = flatten(mdResults.map(function (mdResult) { return mdResult.evaluated || [] }))
   var evalResults = flatten(evaluations.map(function (evaluation) { return evaluation.evalResult }))
@@ -87,6 +107,7 @@ function getExitCode(mdResults) {
   return 0
 }
 
+/** @param {string} [packagePath] */
 function getPackage(packagePath) {
   packagePath = (packagePath) ? packagePath : './package.json'
   return fs.readFileAsync(packagePath, 'utf8')
@@ -98,6 +119,11 @@ function getPackage(packagePath) {
   .catch(function () { return false })
 }
 
+/**
+ * @param {MdNode} node
+ * @param {readonly MdNode[]} nodes
+ * @param {(node: MdNode) => unknown} fn
+ */
 function previousIndex(node, nodes, fn) {
   var index = nodes.indexOf(node)
   index = index < 0 ? 0 : index
@@ -107,33 +133,47 @@ function previousIndex(node, nodes, fn) {
   return subArr.length - revIndex
 }
 
+/**
+ * @param {MdNode} node
+ * @param {readonly MdNode[]} nodes
+ * @param {string} type
+ */
 function previousIndexType(node, nodes, type) {
   return previousIndex(node, nodes, function (node) {
     return node.type === type
   })
 }
 
-function previousIndexClose(node, nodes, type) {
+/**
+ * @param {MdNode} node
+ * @param {readonly MdNode[]} nodes
+ */
+function previousIndexClose(node, nodes) {
   return previousIndex(node, nodes, function (node) {
-    return node.type.match(/\_close$/)
+    return node.type && node.type.match(/\_close$/)
   })
 }
 
+/** @param {readonly MdNode[]} nodes */
 function groupChildren(nodes) {
-  nodes = groupBy(nodes, function (node) {
+  const grouped = groupBy(nodes, function (node) {
     return previousIndexClose(node, nodes)
   })
-  return values(nodes)
+  return values(grouped)
 }
 
-/** searches preceeding nodes for pattern */
+/**
+ * searches preceeding nodes for pattern
+ * @param {readonly MdNode[]} subNodes
+ * @param {RegExp} pattern
+ */
 function searchLink(subNodes, pattern) {
   var textNode = subNodes.find(function (node) {
     if (!node.content) return false
     return node.content.match(pattern)
   })
   if (textNode) {
-    var match = textNode.content.match(pattern)
+    var match = String(textNode.content || '').match(pattern)
     if (match && match[1]) return match[1]
     if (match) return true
   } else {
@@ -141,8 +181,12 @@ function searchLink(subNodes, pattern) {
   }
 }
 
+/**
+ * @param {MdNode} node
+ * @param {RegExp} pattern
+ */
 function searchComment(node, pattern) {
-  var commentMatch = node.content.match(pattern)
+  var commentMatch = String(node.content || '').match(pattern)
   // if there's a first-line comment match return the value
   if (commentMatch && commentMatch[2]) {
     return commentMatch[2]
@@ -153,27 +197,35 @@ function searchComment(node, pattern) {
   }
 }
 
+/** @param {number} lines */
 function createLineDoc(lines) {
   return range(lines).map(function () {
     return ''
   })
 }
 
+/**
+ * @param {number | false | undefined} start
+ * @param {string | string[]} main
+ * @param {string | string[]} sub
+ */
 function replaceLines(start, main, sub) {
-  main = (Array.isArray(main)) ? main : main.split('\n')
-  sub = (Array.isArray(sub)) ? sub : sub.split('\n')
-  var output = flatten([main.slice(0, start), sub, main.slice(start + sub.length, main.length)])
+  main = Array.isArray(main) ? main : main.split('\n')
+  sub = Array.isArray(sub) ? sub : sub.split('\n')
+  var output = flatten([main.slice(0, start || 0), sub, main.slice((start || 0) + sub.length, main.length)])
   return output
 }
 
+/** @param {string} content */
 function getHash(content) {
   var shasum = crypto.createHash('md5')
   return shasum.update(content).digest('hex')
 }
 
+/** @param {readonly MdNode[]} nodes */
 function mapNodes(nodes) {
   return nodes.map(function (node, index) {
-    node.children = groupChildren(node.children)
+    // node.children = groupChildren(node.children)
     node.previousFenceIndex = previousIndexType(node, nodes, 'fence')
 
     var subNodes = nodes.slice(node.previousFenceIndex, index)
@@ -193,13 +245,18 @@ function mapNodes(nodes) {
   })
 }
 
-function getNodeId(nodes, filePath) {
+/** @param {readonly MdNode[]} nodes */
+function getNodeId(nodes) {
   return nodes.map(function (node, index) {
     node.id = index + 1
     return node
   })
 }
 
+/**
+ * @param {readonly MdNode[]} nodes
+ * @param {string[]} langs
+ */
 function getFences(nodes, langs) {
   return nodes.filter(function (node) {
     if (node.type !== 'fence') return false
@@ -210,12 +267,17 @@ function getFences(nodes, langs) {
   })
 }
 
+/** @param {readonly MdNode[]} nodes */
 function filterPrevented(nodes) {
   return nodes.filter(function (node) {
     return !node.preventEval
   })
 }
 
+/**
+ * @param {MdNode | readonly MdNode[]} node$
+ * @param {number} lines
+ */
 function buildPreserveLines(node$, lines) {
   var nodes = flatten([node$])
   var lineDoc = createLineDoc(lines)
@@ -226,7 +288,8 @@ function buildPreserveLines(node$, lines) {
   return lineDoc.join('\n')
 }
 
-function buildConcat(node$, lines) {
+/** @param {MdNode | readonly MdNode[]} node$ */
+function buildConcat(node$) {
   var nodes = flatten([node$])
   return nodes
   .map(function (node) {
@@ -235,29 +298,54 @@ function buildConcat(node$, lines) {
   .join('')
 }
 
+/**
+ * @param {string} code
+ * @returns {readonly Dep[]}
+ */
 function getDeps(code) {
   var ast = CURRENT_PARSE ? CURRENT_PARSE(code) : acorn.parse(code, {sourceType: SLOPPY ? 'script' : 'module', ecmaVersion: 6})
   var deps = umd(ast, {
     es6: true, amd: true, cjs: true
   })
-  return Array.from(new Set(deps))
+  return Array.from(new Set(deps)).map(function (dep) {
+    var source = dep.source
+    return {
+      source: {
+        value: String(source && 'value' in source ? source.value : ''),
+        start: source ? source.start : 0,
+        end: source ? source.end : 0
+      }
+    }
+  })
 }
 
+/**
+ * @param {string} str
+ * @param {number} start
+ * @param {number} end
+ * @param {string} value
+ */
 function replacePosition(str, start, end, value) {
   return str.substr(0, start) + value + str.substr(end)
 }
 
+/** @param {string} replacement */
 function toRequirePath(replacement) {
   return replacement.split(path.sep).join('/')
 }
 
+/** @param {string} s */
 function regExpEscape(s) {
   return s.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')
 }
 
-function alterAssignedModule(code, prepend, pkg) {
+/**
+ * @param {string} code
+ * @param {string} _prepend
+ * @param {Package | false} pkg
+ */
+function alterAssignedModule(code, _prepend, pkg) {
   if (!pkg) return code
-  prepend = (prepend) ? prepend : './'
   var deps = getDeps(code)
   if (!deps.length) return code
   var name = pkg.name
@@ -278,6 +366,10 @@ function alterAssignedModule(code, prepend, pkg) {
   return code
 }
 
+/**
+ * @param {string} code
+ * @param {readonly MdNode[]} nodes
+ */
 function alterSelfModules(code, nodes) {
   var deps = getDeps(code)
   if (!deps.length) return code
@@ -299,6 +391,11 @@ function alterSelfModules(code, nodes) {
   return code
 }
 
+/**
+ * @param {string} code
+ * @param {readonly MdNode[]} nodes
+ * @param {string} prepend
+ */
 function alterPrependModules(code, nodes, prepend) {
   var deps = getDeps(code)
   if (!deps.length) return code
@@ -322,7 +419,12 @@ function alterPrependModules(code, nodes, prepend) {
   return code
 }
 
-function alterNpmModules(code, nodes, prepend) {
+/**
+ * @param {string} code
+ * @param {readonly MdNode[]} _nodes
+ * @param {string} prepend
+ */
+function alterNpmModules(code, _nodes, prepend) {
   var deps = getDeps(code)
   if (!deps.length) return code
   prepend = (prepend) ? prepend : './'
@@ -340,6 +442,12 @@ function alterNpmModules(code, nodes, prepend) {
   return code
 }
 
+/**
+ * @param {string} code
+ * @param {readonly MdNode[]} nodes
+ * @param {Package | false} pkg
+ * @param {string} prepend
+ */
 function alterModules(code, nodes, pkg, prepend) {
   // syntax errors will come through to here and
   // get thrown by the acorn parser
@@ -350,35 +458,42 @@ function alterModules(code, nodes, pkg, prepend) {
   return code
 }
 
+/**
+ * @param {MdNode | readonly MdNode[]} node
+ * @param {readonly MdNode[]} nodes
+ * @param {number} markdownLinesLength
+ * @param {Package | false} pkg
+ * @param {string} prepend
+ * @returns {EvalBuild}
+ */
 function buildEvalable(node, nodes, markdownLinesLength, pkg, prepend) {
-  var build = {}
-  build.preserve = buildPreserveLines(node, markdownLinesLength)
-  build.concat = buildConcat(node)
+  var preserve = buildPreserveLines(node, markdownLinesLength)
+  var concat = buildConcat(node)
   // if there is an error have preserve run first to return line number
-  build.preserveAlter = alterModules(build.preserve, nodes, pkg, prepend)
-  build.concatAlter = alterModules(build.concat, nodes, pkg, prepend)
-  return build
+  var preserveAlter = alterModules(preserve, nodes, pkg, prepend)
+  var concatAlter = alterModules(concat, nodes, pkg, prepend)
+  return {
+    preserve: preserve,
+    concat: concat,
+    preserveAlter: preserveAlter,
+    concatAlter: concatAlter
+  };
 }
 
+/** @param {string} stack */
 function stackSplit(stack) {
+  var pattern = /^\s\s\s\sat\s/
   var stackLines = stack.split('\n')
-  var buckets = {
-    'frame': [],
-    'lines': []
+  return {
+    frame: stackLines.filter(function (stackLine) { return !pattern.test(stackLine) }),
+    lines: stackLines.filter(function (stackLine) { return pattern.test(stackLine) })
   }
-  stackLines.forEach(function (stackLine) {
-    var pattern = /^\s\s\s\sat\s/
-    var match = stackLine.match(pattern)
-    if (match) {
-      buckets.lines.push(stackLine)
-    } else {
-      buckets.frame.push(stackLine)
-    }
-  })
-  return buckets
 }
 
-/** join the stack from with the lines */
+/**
+ * join the stack from with the lines
+ * @param {StackBuckets} stack
+ */
 function stackJoin(stack) {
   return [
     stack.frame.join('\n'),
@@ -386,9 +501,13 @@ function stackJoin(stack) {
   ].join('\n')
 }
 
+/**
+ * @param {readonly MdNode[]} nodes
+ * @param {number | undefined} line
+ */
 function findErrorNode(nodes, line) {
   return nodes.find(function (node) {
-    return node.startLine <= line && node.endLine >= line
+    return Number(node.startLine) <= Number(line) && Number(node.endLine) >= Number(line)
   })
 }
 
@@ -419,18 +538,20 @@ function debugMsg() {
   ].concat(args).join(' ')
 }
 
+/** @param {unknown} errOrStack */
 function cleanStack(errOrStack) {
-  if (errOrStack && errOrStack.stack) return String(errOrStack).split(/\r\n?|\n/)
+  if (errOrStack instanceof Error && errOrStack.stack) return String(errOrStack).split(/\r\n?|\n/)
   if (Array.isArray(errOrStack)) return errOrStack
   if (errOrStack) return String(errOrStack).split(/\r\n?|\n/)
   return false
 }
 
+/** @param {unknown} err */
 function logErr(err) {
   var lines = cleanStack(err)
   if (lines) {
     lines.forEach(function (line) {
-      return log(errMsg(line))
+      return log && log(errMsg(line))
     })
   }
   return lines
@@ -438,16 +559,20 @@ function logErr(err) {
 
 function logInfo() {
   var args = Array.prototype.slice.call(arguments)
-  return log(infoMsg.apply(null, args))
+  return log && log(infoMsg.apply(null, args))
 }
 
 function logDebug() {
   var args = Array.prototype.slice.call(arguments)
-  if (DEBUG) return log(debugMsg.apply(null, args))
+  if (DEBUG) return log && log(debugMsg.apply(null, args))
 }
 
+/**
+ * @param {string[] & { all?: string[] }} store
+ * @param {boolean} silence
+ */
 function logFactory(store, silence) {
-  return function (data) {
+  return /** @param {string} data */ function (data) {
     var colorLessData = chalk.stripColor(data)
     if (!store.all) store.all = []
     store.push(colorLessData)
@@ -455,9 +580,25 @@ function logFactory(store, silence) {
   }
 }
 
+/**
+ * @param {unknown} e
+ * @returns {e is Error & { loc: { line: number, column: number } }}
+ */
+var isAcornError = function (e) {
+  return e instanceof Error
+    && 'loc' in e
+    && typeof e.loc === 'object' && e.loc !== null
+    && 'line' in e.loc && typeof e.loc.line === 'number'
+    && 'column' in e.loc && typeof e.loc.column === 'number'
+}
+
+/**
+ * @param {readonly MdNode[]} nodes
+ * @param {string} filePath
+ */
 function acornError(nodes, filePath) {
-  return function (e) {
-    if (!e.stack || !e.loc) return e
+  return /** @param {unknown} e */ function (e) {
+    if (!isAcornError(e) || !e.stack || !e.loc) return e
     var stack = stackSplit(e.stack)
     var lineChar = [e.loc.line, ':', e.loc.column].join('')
     var errorNode = findErrorNode(nodes, e.loc.line)
@@ -468,27 +609,37 @@ function acornError(nodes, filePath) {
   }
 }
 
+/** @param {string | Error} s */
 function parseLineChar(s) {
-  if (s instanceof Error && s.message) s = s.message
+  var str = s instanceof Error ? s.message : s
   var patternLineChar = /:(\d+):(\d+)/
   var patternLine = /:(\d+)/
 
-  var matchLineChar = s.match(patternLineChar)
-  var matchLine = s.match(patternLine)
+  var matchLineChar = str.match(patternLineChar)
   if (matchLineChar) {
-    matchLineChar.lineChar = matchLineChar[0]
-    matchLineChar.line = parseInt(matchLineChar[1], 10)
-    matchLineChar.char = parseInt(matchLineChar[2], 10)
-    return matchLineChar
-  } else if (matchLine) {
-    matchLine.lineChar = parseInt(matchLine[1], 10)
-    matchLine.line = parseInt(matchLine[1], 10)
-    matchLine.char = false
-    return matchLine
+    return {
+      lineChar: matchLineChar[0],
+      line: parseInt(matchLineChar[1], 10),
+      char: parseInt(matchLineChar[2], 10)
+    }
+  }
+  var matchLine = str.match(patternLine)
+  if (matchLine) {
+    return {
+      lineChar: parseInt(matchLine[1], 10),
+      line: parseInt(matchLine[1], 10),
+      char: false
+    }
   }
   return false
 }
 
+/**
+ * @param {string[]} incLines
+ * @param {ConcatNode} nodes
+ * @param {string} absFilePath
+ * @param {boolean} frame
+ */
 function getCleanLines(incLines, nodes, absFilePath, frame) {
   var lines = incLines.map(function (line) {
     var lineChar = parseLineChar(line)
@@ -500,24 +651,25 @@ function getCleanLines(incLines, nodes, absFilePath, frame) {
       if (!nodes.fileEvalHashPath) return false
       var match = line.match(nodes.fileEvalHashPath)
       if (!match) return false
-      var errorNode = findErrorNode(nodes, lineChar.line)
-      if (errorNode && errorNode.id) nodes.id = errorNode.id
-      return nodes
+      var errorNode = findErrorNode(nodes, lineChar ? lineChar.line : undefined)
+      return {
+        id: errorNode && errorNode.id ? errorNode.id : nodes.id,
+        fileEval: nodes.fileEval,
+      };
     }())
     var match = matchNodes || matchNode || false
 
-    var replacement = (function () {
-      if (!match) return false
-      var lineChar = parseLineChar(line)
-      var str = []
-      if (!frame) str.push('    at ')
-      str.push(absFilePath)
-      if (lineChar.line && lineChar.char) str.push(':' + lineChar.line + ':' + lineChar.char)
-      if (lineChar.line && !lineChar.char) str.push(':' + lineChar.line)
-      if (match.id && !match.fileEval) str.push(' {block ' + match.id + '}')
-      if (match.id && match.fileEval) str.push(' {block ' + match.id + ' (' + match.fileEval + ')}')
-      return str.join('')
-    }())
+    /** @type {string | false} */
+    var replacement = false
+    if (match) {
+      replacement = ''
+      if (!frame) replacement += '    at '
+      replacement += absFilePath
+      if (lineChar && lineChar.line && lineChar.char) replacement += ':' + lineChar.line + ':' + lineChar.char
+      if (lineChar && lineChar.line && !lineChar.char) replacement += ':' + lineChar.line
+      if (match.id && !match.fileEval) replacement += ' {block ' + match.id + '}'
+      if (match.id && match.fileEval) replacement += ' {block ' + match.id + ' (' + match.fileEval + ')}'
+    }
     return {
       'line': line,
       'replacement': replacement
@@ -532,16 +684,20 @@ function getCleanLines(incLines, nodes, absFilePath, frame) {
       return matchFound
     })
   }
-  lines = lines.map(function (line) {
-    if (line.replacement) return line.replacement
+  var cleanLines = lines.map(function (line) {
+    if (typeof line.replacement === 'string') return line.replacement
     return line.line
   })
-  return lines.reverse()
+  return cleanLines.reverse()
 }
 
+/**
+ * @param {string} filePath
+ * @param {readonly MdNode[]} nodes
+ */
 function evalError(filePath, nodes) {
-  return function (e) {
-    if (!e.stack) return e
+  return /** @param {unknown} e */ function (e) {
+    if (!(e instanceof Error) || !e.stack) return e
     var stack = stackSplit(e.stack)
     var absFilePath = path.resolve(filePath)
     var cleanLines = getCleanLines(stack.lines, nodes, absFilePath, false)
@@ -553,6 +709,7 @@ function evalError(filePath, nodes) {
   }
 }
 
+/** @param {string} file */
 function evalFileAsync(file) {
   return new Promise(function (resolve, reject) {
     var command = [process.execPath, file].join(' ')
@@ -567,12 +724,21 @@ function evalFileAsync(file) {
   })
 }
 
+/**
+ * @param {unknown} error
+ * @param {((e: unknown) => unknown) | undefined} [stackWrapper]
+ */
 function getCleanErr(error, stackWrapper) {
   if (stackWrapper) return stackWrapper(error)
-  if (error.stack) return error.stack
+  if (error instanceof Error && error.stack) return error.stack
   return error
 }
 
+/**
+ * @param {unknown} error
+ * @param {((e: unknown) => unknown) | undefined} stackWrapper
+ * @param {boolean} nonstop
+ */
 function nonstopErr(error, stackWrapper, nonstop) {
   var cleanErr = getCleanErr(error, stackWrapper)
   if (nonstop) {
@@ -583,10 +749,29 @@ function nonstopErr(error, stackWrapper, nonstop) {
   }
 }
 
-function evaluate(node, nodes, markdownLinesLength, pkg, prepend, nonstop, filePath) {
+/**
+ * @template {MdNode | ConcatNode} T
+ * @param {T} node
+ * @param {readonly MdNode[]} nodes
+ * @param {number} markdownLinesLength
+ * @param {Package | false} pkg
+ * @param {string} prepend
+ * @param {boolean} nonstop
+ * @param {string} filePath
+ * @returns {Promise<T>}
+ */
+function evaluate(
+  node,
+  nodes,
+  markdownLinesLength,
+  pkg,
+  prepend,
+  nonstop,
+  filePath
+) {
   return promiseRipple(node, {
     notice: function (node) {
-      var ids = (Array.isArray(node)) ? node.map(function (n) { return n.id }) : [node.id]
+      var ids = Array.isArray(node) ? node.map(function (n) { return n.id }) : [node.id]
       var word = (ids.length > 1) ? 'blocks' : 'block'
       logInfo(filePath, ['running', word, ids.join(', ')].join(' '))
     },
@@ -600,23 +785,28 @@ function evaluate(node, nodes, markdownLinesLength, pkg, prepend, nonstop, fileP
       }
     },
     fileName: function (node) {
-      node.fileEvalHash = (node.fileEval) ? getHash(node.fileEval) : getHash(filePath + node.id)
-      node.fileEvalHashPath = path.join(temp, node.fileEvalHash + '.js')
+      var fileEvalHash = typeof node.fileEval === 'string' ? getHash(node.fileEval) : getHash(filePath + node.id)
+      Object.assign(node, {
+        fileEvalHash: fileEvalHash,
+        fileEvalHashPath: path.join(temp, fileEvalHash + '.js')
+      })
       return node
     },
     fileCreated: function (node) {
-      if (!node.evalCode || node.evalCode instanceof Error) return false
-      var dirs = path.dirname(node.fileEvalHashPath)
+      if (!node.evalCode || node.evalCode instanceof Error || !node.fileEvalHashPath) return false
+      var evalCode = node.evalCode
+      var fileEvalHashPath = node.fileEvalHashPath
+      var dirs = path.dirname(fileEvalHashPath)
       return fs.mkdirsAsync(dirs)
       .then(function () {
-        return fs.writeFileAsync(node.fileEvalHashPath, node.evalCode.preserveAlter)
+        return fs.writeFileAsync(fileEvalHashPath, evalCode.preserveAlter)
         .then(function () {
           return true
         })
       })
     },
     evalResult: function (node) {
-      if (!node.fileCreated) return false
+      if (!node.fileCreated || !node.fileEvalHashPath) return false
       var stackWrapper = evalError(filePath, nodes)
       return evalFileAsync(node.fileEvalHashPath)
         .catch(function (error) {
@@ -624,15 +814,32 @@ function evaluate(node, nodes, markdownLinesLength, pkg, prepend, nonstop, fileP
         })
     },
     fileRemove: function (node) {
-      if (!node.fileCreated) return false
+      if (!node.fileCreated || !node.fileEvalHashPath) return false
       return fs.unlinkAsync(node.fileEvalHashPath)
     }
   })
 }
 
-function evaluateScope(nodes, markdownLinesLength, pkg, prepend, nonstop, filePath, blockScope) {
+/**
+ * @param {ConcatNode} nodes
+ * @param {number} markdownLinesLength
+ * @param {Package | false} pkg
+ * @param {string} prepend
+ * @param {boolean} nonstop
+ * @param {string} filePath
+ * @param {boolean} blockScope
+ */
+function evaluateScope(
+  nodes,
+  markdownLinesLength,
+  pkg,
+  prepend,
+  nonstop,
+  filePath,
+  blockScope
+) {
   if (blockScope) {
-    return promiseSeries(nodes, function (node, index, nodes) {
+    return promiseSeries(nodes, function (node, _index, nodes) {
       return evaluate(node, nodes, markdownLinesLength, pkg, prepend, nonstop, filePath)
     })
   } else {
@@ -643,10 +850,33 @@ function evaluateScope(nodes, markdownLinesLength, pkg, prepend, nonstop, filePa
   }
 }
 
-function outputCode(node, nodes, markdownLinesLength, pkg, prepend, nonstop, filePath, output, delimeter) {
+/**
+ * @template {MdNode | ConcatNode} T
+ * @param {T} node
+ * @param {readonly MdNode[]} nodes
+ * @param {number} markdownLinesLength
+ * @param {Package | false} pkg
+ * @param {string} prepend
+ * @param {boolean} nonstop
+ * @param {string} filePath
+ * @param {string | boolean} output
+ * @param {string | boolean} delimeter
+ * @returns {Promise<T>}
+ */
+function outputCode(
+  node,
+  nodes,
+  markdownLinesLength,
+  pkg,
+  prepend,
+  nonstop,
+  filePath,
+  output,
+  delimeter
+) {
   return promiseRipple(node, {
     notice: function (node) {
-      var ids = (Array.isArray(node)) ? node.map(function (n) { return n.id }) : [node.id]
+      var ids = Array.isArray(node) ? node.map(function (n) { return n.id }) : [node.id]
       var word = (ids.length > 1) ? 'blocks' : 'block'
       logInfo(filePath, ['outputting', word, ids.join(', ')].join(' '))
     },
@@ -660,9 +890,11 @@ function outputCode(node, nodes, markdownLinesLength, pkg, prepend, nonstop, fil
       }
     },
     output: function (node) {
-      if (node.evalCode instanceof Error) return false
+      if (!node.evalCode || node.evalCode instanceof Error) return false
       if (output === true) output = 'preserve'
-      process.stdout.write(node.evalCode[output])
+      if (output === 'preserve' || output === 'concat' || output === 'preserveAlter' || output === 'concatAlter') {
+        process.stdout.write(node.evalCode[output])
+      }
       delimeter = (delimeter === true) ? '//EVALMD-STDOUT-FILE-DELIMETER' : delimeter
       if (delimeter) process.stdout.write(delimeter)
       return true
@@ -670,9 +902,30 @@ function outputCode(node, nodes, markdownLinesLength, pkg, prepend, nonstop, fil
   })
 }
 
-function outputScope(nodes, markdownLinesLength, pkg, prepend, nonstop, filePath, blockScope, output, delimeter) {
+/**
+ * @param {ConcatNode} nodes
+ * @param {number} markdownLinesLength
+ * @param {Package | false} pkg
+ * @param {string} prepend
+ * @param {boolean} nonstop
+ * @param {string} filePath
+ * @param {boolean} blockScope
+ * @param {string | boolean} output
+ * @param {string | boolean} delimeter
+ */
+function outputScope(
+  nodes,
+  markdownLinesLength,
+  pkg,
+  prepend,
+  nonstop,
+  filePath,
+  blockScope,
+  output,
+  delimeter
+) {
   if (blockScope) {
-    return promiseSeries(nodes, function (node, index, nodes) {
+    return promiseSeries(nodes, function (node, _index, nodes) {
       return outputCode(node, nodes, markdownLinesLength, pkg, prepend, nonstop, filePath, output, delimeter)
     })
   } else {
@@ -683,12 +936,15 @@ function outputScope(nodes, markdownLinesLength, pkg, prepend, nonstop, filePath
   }
 }
 
+/** @type {{ [kind: string]: string[] }} */
 var KIND_LANGS = {
   js: ['js', 'javascript'],
   sh: ['sh']
 }
 
+/** @param {readonly string[]} evalLangs */
 function normalizeKinds(evalLangs) {
+  /** @type {string[]} */
   var kinds = []
   evalLangs.forEach(function (lang) {
     var kind = (lang === 'javascript') ? 'js' : lang
@@ -697,9 +953,12 @@ function normalizeKinds(evalLangs) {
   return kinds
 }
 
+/** @param {string | undefined} content */
 function parsePromptBlock(content) {
   var lines = String(content || '').split(/\r\n?|\n/)
+  /** @type {{ command: string, output: string[] }[]} */
   var commands = []
+  /** @type {false | { command: string, output: string[] }} */
   var current = false
   lines.forEach(function (line) {
     var match = line.match(/^[$%>]\s+(.*)$/)
@@ -715,6 +974,7 @@ function parsePromptBlock(content) {
   })
 }
 
+/** @param {string} command */
 function runPromptCommand(command) {
   var mergeStderrIntoStdout = '( ' + command + ' ) 2>&1'
   return new Promise(function (resolve) {
@@ -727,6 +987,10 @@ function runPromptCommand(command) {
   })
 }
 
+/**
+ * @param {{ command: string, expected: string }} item
+ * @param {{ code: number, output: string }} result
+ */
 function checkPromptCommand(item, result) {
   var actual = String(result.output).replace(/\r\n/g, '\n').replace(/\n+$/, '')
   var expected = String(item.expected).replace(/\r\n/g, '\n').replace(/\n+$/, '')
@@ -745,6 +1009,11 @@ function checkPromptCommand(item, result) {
   return false
 }
 
+/**
+ * @param {readonly MdNode[]} nodes
+ * @param {string} filePath
+ * @param {boolean} nonstop
+ */
 function evaluateShell(nodes, filePath, nonstop) {
   return promiseSeries(nodes, function (node) {
     logInfo(filePath, ['running', 'block', node.id].join(' '))
@@ -767,22 +1036,39 @@ function evaluateShell(nodes, filePath, nonstop) {
   })
 }
 
+/**
+ * @param {string} kind
+ * @param {readonly MdNode[]} nodes
+ * @param {string} filePath
+ * @param {boolean} nonstop
+ */
 function evaluateKind(kind, nodes, filePath, nonstop) {
   if (kind === 'sh') return evaluateShell(nodes, filePath, nonstop)
   return Promise.resolve([])
 }
 
+/**
+ * @param {AssembleData} data
+ * @param {Package | false} pkg
+ * @param {string} prepend
+ * @param {boolean} nonstop
+ * @param {string} filePath
+ */
 function evaluateAllKinds(data, pkg, prepend, nonstop, filePath) {
+  /** @type {(() => unknown)[]} */
   var runners = []
-  if (data.evalNodes.length) {
+  var evalNodes = data.evalNodes || []
+  var markdownLinesLength = (data.markdownLines || []).length
+  var kindFences = data.kindFences || {}
+  if (evalNodes.length) {
     runners.push(function () {
-      return evaluateScope(data.evalNodes, data.markdownLines.length, pkg, prepend, nonstop, filePath, data.blockScope)
+      return evaluateScope(evalNodes, markdownLinesLength, pkg, prepend, nonstop, filePath, Boolean(data.blockScope))
     })
   }
-  Object.keys(data.kindFences).forEach(function (kind) {
-    if (data.kindFences[kind].length) {
+  Object.keys(kindFences).forEach(function (kind) {
+    if (kindFences[kind].length) {
       runners.push(function () {
-        return evaluateKind(kind, data.kindFences[kind], filePath, nonstop)
+        return evaluateKind(kind, kindFences[kind], filePath, nonstop)
       })
     }
   })
@@ -790,6 +1076,7 @@ function evaluateAllKinds(data, pkg, prepend, nonstop, filePath) {
     logInfo('no blocks to eval')
     return Promise.resolve(false)
   }
+  /** @type {unknown[]} */
   var results = []
   return runners.reduce(function (chain, runner) {
     return chain.then(function () {
@@ -802,25 +1089,42 @@ function evaluateAllKinds(data, pkg, prepend, nonstop, filePath) {
   })
 }
 
+/**
+ * @param {string} filePath
+ * @param {Package | false} pkg
+ * @param {string} prepend
+ * @param {boolean} blockScope
+ * @param {boolean} nonstop
+ * @param {boolean} preventEval
+ * @param {boolean} includePrevented
+ * @param {string | boolean} output
+ * @param {string | boolean} delimeter
+ * @param {readonly string[]} evalLangs
+ * @param {boolean} useEslint
+ * @returns {Promise<AssembleData>}
+ */
 function assemble(filePath, pkg, prepend, blockScope, nonstop, preventEval, includePrevented, output, delimeter, evalLangs, useEslint) {
   // get the markdown file contents
-  return promiseRipple({
-    markdown: function (data) {
+  /** @type {AssembleData} */
+  var initial = {}
+  return promiseRipple(initial, {
+    markdown: function () {
       return fs.readFileAsync(filePath, 'utf8')
     },
+    /** @param {AssembleData} data */
     processNodes: function (data) {
       // create new md instance
       var md = new MarkdownIt()
       // split the markdown file by lines
       data.markdownLines = String(data.markdown || '').split(/\r\n?|\n/)
       // get all the nodes
-      data.nodes = md.parse(data.markdown, {})
+      data.nodes = md.parse(String(data.markdown || ''), {})
       // map all the nodes
-      data.nodes = mapNodes(data.nodes, filePath)
+      data.nodes = mapNodes(data.nodes)
       // get all js / javascript fenced blocks
       data.allFences = getFences(data.nodes, ['js', 'javascript'])
       // get all hashes
-      data.allJsFences = getNodeId(data.allFences, filePath)
+      data.allJsFences = getNodeId(data.allFences)
       // get all permitted blocks
       data.permittedFences = filterPrevented(data.allJsFences)
       // eval nodes
@@ -828,23 +1132,28 @@ function assemble(filePath, pkg, prepend, blockScope, nonstop, preventEval, incl
       var evalJs = data.kinds.indexOf('js') !== -1
       data.evalNodes = (evalJs) ? ((includePrevented) ? data.allJsFences : data.permittedFences) : []
       data.kindFences = {}
+      var kindFences = data.kindFences
+      var kindNodes = data.nodes || []
       data.kinds.forEach(function (kind) {
         if (kind === 'js') return
-        data.kindFences[kind] = getNodeId(getFences(data.nodes, KIND_LANGS[kind] || [kind]), filePath)
+        kindFences[kind] = getNodeId(getFences(kindNodes, KIND_LANGS[kind] || [kind]))
       })
       // get the blockscope
-      data.blockScope = blockScope || Boolean(data.evalNodes.map(function (node) { return node.fileEval }).filter(function (fileEval) { return fileEval !== false }).length)
+      data.blockScope = blockScope
+        || Boolean(data.evalNodes.map(function (node) { return node.fileEval }).filter(function (fileEval) { return fileEval !== false }).length)
       return data
     },
+    /** @param {AssembleData} data */
     resolvedParsers: function (data) {
       if (!useEslint) return false
-      return Promise.all(data.evalNodes.map(function (node) {
+      return Promise.all((data.evalNodes || []).map(function (node) {
         return resolveParse(filePath, String(node.id), process.cwd()).then(function (parse) {
           node.parse = parse
           return node.id
         })
       }))
     },
+    /** @param {AssembleData} data */
     evaluated: function (data) {
       if (preventEval) {
         logInfo('eval prevented')
@@ -852,11 +1161,13 @@ function assemble(filePath, pkg, prepend, blockScope, nonstop, preventEval, incl
       }
       return evaluateAllKinds(data, pkg, prepend, nonstop, filePath)
     },
+    /** @param {AssembleData} data */
     outputed: function (data) {
       if (!output) {
         return false
       }
-      return outputScope(data.evalNodes, data.markdownLines.length, pkg, prepend, nonstop, filePath, data.blockScope, output, delimeter)
+      if (!data.evalNodes || !data.markdownLines) return false
+      return outputScope(data.evalNodes, data.markdownLines.length, pkg, prepend, nonstop, filePath, Boolean(data.blockScope), output, delimeter)
     }
   })
 }

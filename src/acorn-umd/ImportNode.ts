@@ -1,11 +1,18 @@
 import Node from './Node';
+import type { AstNode } from './Node';
 import lookup from 'es-lookup-scope';
 
-export default class ImportNode extends Node {
-  reference: any
-  ast: any
+interface ImportNode {
+  reference: AstNode;
+  ast: AstNode;
+  specifiers: Array<Node | AstNode>;
+  source?: Node | AstNode;
+  sources?: Array<Node | AstNode>;
+  imports?: [AstNode, AstNode][];
+}
 
-  constructor(ast, reference, settings) {
+class ImportNode extends Node {
+  constructor(ast: AstNode, reference: AstNode, settings: Partial<ImportNode>) {
     super(settings);
     this.reference = reference;
     this.ast = ast;
@@ -15,3 +22,5 @@ export default class ImportNode extends Node {
     return lookup(this, this.ast);
   }
 }
+
+export default ImportNode;

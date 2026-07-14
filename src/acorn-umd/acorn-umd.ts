@@ -1,32 +1,42 @@
+import type * as ESTree from 'estree';
+import type { Node as AcornNode } from 'acorn';
 import assign from 'object.assign';
 import estraverse from 'estraverse';
 import Node from './Node';
+import type { AstNode, Positioned } from './Node';
 import ImportNode from './ImportNode';
+import type { UmdOptions } from '../types';
 
-function isRequireCallee(node) {
+type CallNode = Positioned<ESTree.SimpleCallExpression>;
+type ArrayNode = Positioned<Omit<ESTree.ArrayExpression, 'elements'>> & {
+  elements: Positioned<ESTree.Expression | ESTree.SpreadElement>[];
+};
+type FuncNode = Positioned<ESTree.FunctionExpression | ESTree.ArrowFunctionExpression>;
+
+function isRequireCallee(node: AstNode) {
   return node.type === 'CallExpression'
     && !!node.callee
-    && node.callee.name === 'require'
-    && node.callee.type === 'Identifier';
+    && node.callee.type === 'Identifier'
+    && node.callee.name === 'require';
 }
 
-function isDefineCallee(node) {
+function isDefineCallee(node: AstNode): node is CallNode {
   return node.type === 'CallExpression'
     && !!node.callee
-    && node.callee.name === 'define'
-    && node.callee.type === 'Identifier';
+    && node.callee.type === 'Identifier'
+    && node.callee.name === 'define';
 }
 
-function isArrayExpr(node) {
+function isArrayExpr(node: AstNode): node is ArrayNode {
   return node.type === 'ArrayExpression';
 }
 
-function isFuncExpr(node) {
+function isFuncExpr(node: AstNode): node is FuncNode {
   return /FunctionExpression$/.test(node.type);
 }
 
 // Set up an AST Node similar to an ES6 import node
-function constructImportNode(ast, node, type) {
+function constructImportNode(ast: AstNode, node: AstNode, type: string) {
   let {start, end} = node;
   return new ImportNode(ast, node, {
     type,
@@ -35,15 +45,16 @@ function constructImportNode(ast, node, type) {
   });
 }
 
-function createImportSpecifier(source, definition, isDef) {
-  let imported;
+function createImportSpecifier(source: AstNode, definition: AstNode, isDef: boolean) {
+  let imported: AstNode | undefined;
   if (definition.type === 'MemberExpression') {
     imported = assign({}, definition.property);
     isDef = false;
   }
 
   // Add the specifier
-  let {name, type, start, end} = source;
+  let {type, start, end} = source;
+  let name = 'name' in source ? source.name : undefined;
 
   return new Node({
     start, end,
@@ -56,8 +67,10 @@ function createImportSpecifier(source, definition, isDef) {
   });
 }
 
-function createSourceNode(node, source) {
-  let {value, raw, start, end} = source;
+function createSourceNode(node: AstNode, source: AstNode) {
+  let {start, end} = source;
+  let value = 'value' in source ? source.value : undefined;
+  let raw = 'raw' in source ? source.raw : undefined;
   return new Node({
     type: 'Literal',
     reference: node,
@@ -65,34 +78,36 @@ function createSourceNode(node, source) {
   });
 }
 
-function setImportSource(result, node, importExpr) {
+function setImportSource(result: ImportNode, node: AstNode, importExpr: AstNode) {
   if (importExpr.type === 'MemberExpression') {
     importExpr = importExpr.object;
   }
 
-  result.source = createSourceNode(node, importExpr.arguments[0]);
+  result.source = createSourceNode(node, (importExpr as CallNode).arguments[0]);
   return result;
 }
 
-function constructCJSImportNode(ast, node) {
-  let result:any = constructImportNode(ast, node, 'CJSImport');
-  let importExpr;
+function constructCJSImportNode(ast: AstNode, node: AstNode) {
+  let result = constructImportNode(ast, node, 'CJSImport');
+  let importExpr: AstNode = node;
 
   switch (node.type) {
     case 'MemberExpression':
     case 'CallExpression':
       importExpr = node;
       break;
-    case 'AssignmentExpression':
-      let specifier:any = createImportSpecifier(node.left, node.right, false);
-      let {name} = node.left.property || node.left;
+    case 'AssignmentExpression': {
+      let specifier = createImportSpecifier(node.left, node.right, false);
+      let named = 'property' in node.left ? node.left.property : node.left;
+      let name = 'name' in named ? named.name : undefined;
       specifier.local.name = name;
       result.specifiers.push(specifier);
       importExpr = node.right;
       break;
+    }
     case 'VariableDeclarator':
       // init for var, value for property
-      importExpr = node.init;
+      importExpr = node.init ?? node;
       result.specifiers.push(createImportSpecifier(node.id, importExpr, true));
       break;
     case 'Property': {
@@ -105,14 +120,15 @@ function constructCJSImportNode(ast, node) {
   return setImportSource(result, node, importExpr);
 }
 
-function findCJS(ast) {
+function findCJS(ast: Positioned<ESTree.Program>) {
   // Recursively walk ast searching for requires
-  let requires = [];
+  let requires: AstNode[] = [];
 
-  estraverse.traverse(ast, {
+  estraverse.traverse(ast as ESTree.Node, {
     fallback: 'iteration',
-    enter(node) {
-      function checkRequire(expr) {
+    enter(esNode) {
+      const node = esNode as AstNode;
+      function checkRequire(expr: AstNode | null | undefined) {
         if (expr && expr.type === 'MemberExpression') {
           expr = expr.object;
         }
@@ -143,15 +159,15 @@ function findCJS(ast) {
   // Do this by just checking line #'s
   return requires.filter(node => {
       return !requires.some(parent =>
-        [node.start, node.stop].some(pos => pos > parent.start && pos < parent.end));
+        [node.start, node.stop].some(pos => pos !== undefined && pos > parent.start && pos < parent.end));
     })
     .map(node => constructCJSImportNode(ast, node));
 }
 
 // Note there can be more than one define per file with global registeration.
-function findAMD(ast) {
+function findAMD(ast: Positioned<ESTree.Program>) {
   return ast.body
-  .filter(node => node.type === 'ExpressionStatement')
+  .filter((node): node is Positioned<ESTree.ExpressionStatement> => node.type === 'ExpressionStatement')
   .map(node => node.expression)
   .filter(isDefineCallee)
   // Ensure the define takes params and has a function
@@ -160,9 +176,9 @@ function findAMD(ast) {
   .filter(node => node.arguments.filter(isArrayExpr).length <= 1)
   // Now just zip the array arguments and the provided function params
   .map(node => {
-    let outnode:any = constructImportNode(ast, node, 'AMDImport');
+    let outnode = constructImportNode(ast, node, 'AMDImport');
 
-    let func = node.arguments.find(isFuncExpr);
+    let func = node.arguments.filter(isFuncExpr)[0];
     let imports = node.arguments.find(isArrayExpr) || {elements: []};
 
     let params = func.params.slice(0, imports.elements.length);
@@ -173,13 +189,13 @@ function findAMD(ast) {
       // represent this structure
       outnode.sources = imports.elements.map(imp => createSourceNode(node, imp));
       // Make nicer repr: [[importSrc, paramName]]
-      outnode.imports = imports.elements.map((imp, i) => [imp, params[i]]);
+      outnode.imports = imports.elements.map((imp, i): [AstNode, AstNode] => [imp, params[i]]);
     }
     return outnode;
   });
 }
 
-export default function(ast, options) {
+export default function(ast: AcornNode, options: UmdOptions) {
   options = assign({
     cjs: true,
     // TODO
@@ -187,20 +203,21 @@ export default function(ast, options) {
     es6: true
   }, options);
 
-  let result = [];
+  let result: ImportNode[] = [];
+  let root = ast as Positioned<ESTree.Program>;
 
   if (options.cjs) {
-    result.push(...findCJS(ast));
+    result.push(...findCJS(root));
   }
 
   if (options.es6) {
-    result.push(...ast.body
-    .filter(node => node.type === 'ImportDeclaration')
-    .map(node => new ImportNode(ast, node, node)));
+    result.push(...root.body
+    .filter((node): node is Positioned<ESTree.ImportDeclaration> => node.type === 'ImportDeclaration')
+    .map(node => new ImportNode(root, node, node)));
   }
 
   if (options.amd) {
-    result.push(...findAMD(ast));
+    result.push(...findAMD(root));
   }
 
   return result.sort((a, b) => a.start - b.start);

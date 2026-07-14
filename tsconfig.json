@@ -1,9 +1,24 @@
 {
+  "extends": "@ljharb/tsconfig",
   "compilerOptions": {
-    "esModuleInterop": true,
-    "allowSyntheticDefaultImports": true,
-    "allowJs": true,
+    "lib": ["es2015", "es2021.intl"],
     "target": "es5",
-    "outDir": "./dist"
-  }
+    "ignoreDeprecations": "6.0",
+    "noEmit": false,
+    "emitDeclarationOnly": false,
+    "declaration": false,
+    "declarationMap": false,
+    "paths": {
+      "array.prototype.with": ["./types/array.prototype.with"],
+      "chalk": ["./types/chalk"],
+      "es-lookup-scope": ["./types/es-lookup-scope"],
+      "markdown-it": ["./types/markdown-it"],
+      "object.values": ["./types/object.values"],
+      "mkdirp": ["./types/mkdirp"]
+    },
+    "rootDir": "./src",
+    "outDir": "./dist",
+    "maxNodeModuleJsDepth": 0
+  },
+  "exclude": ["dist"]
 }

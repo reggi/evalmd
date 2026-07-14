@@ -1,25 +1,30 @@
-var values = require('object.values')
 var entries = require('object.entries')
 
+/**
+ * @template {object} T
+ * @param {T} start
+ * @param {Record<string, ((data: T) => unknown) & { key?: string }>} props
+ * @returns {Promise<T>}
+ */
 function promiseRipple (start, props) {
-  props = props || start
-  start = props ? start : {}
-  entries(props).forEach(([key, prop]) => {
-    prop.key = key;
-  });
-  return values(props).reduce(function (acc, action) {
+  /** @type {Promise<unknown>} */
+  var seed = Promise.resolve(null)
+  return entries(props).reduce(function (acc, [key, action]) {
     return acc.then(function () {
-      if (typeof action !== 'function') throw new Error('property values must be functions')
-      return Promise.resolve(action(start)).then(function (value) {
+      if (typeof action !== 'function') {
+        throw new Error('property values must be functions')
+      }
+      var fn = /** @type {(data: object) => unknown} */ (action)
+      return Promise.resolve(fn(start)).then(function (value) {
         if (start === value) {
           return value
         } else {
-          start[action.key] = value
+          Object.assign(start, { [key]: value })
           return value
         }
       })
     })
-  }, Promise.resolve(null))
+  }, seed)
   .then(function () {
     return start
   })
