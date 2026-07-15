@@ -2,9 +2,9 @@ import type * as ESTree from 'estree';
 import type { Node as AcornNode } from 'acorn';
 import assign from 'object.assign';
 import estraverse from 'estraverse';
-import Node from './Node';
+import Node from './Node.ts';
 import type { AstNode, Positioned } from './Node';
-import ImportNode from './ImportNode';
+import ImportNode from './ImportNode.ts';
 import type { UmdOptions } from '../types';
 
 type CallNode = Positioned<ESTree.SimpleCallExpression>;

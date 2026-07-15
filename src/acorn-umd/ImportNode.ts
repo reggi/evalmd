@@ -1,4 +1,4 @@
-import Node from './Node';
+import Node from './Node.ts';
 import type { AstNode } from './Node';
 import lookup from 'es-lookup-scope';
 

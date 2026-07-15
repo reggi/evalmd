@@ -3,7 +3,7 @@
 const path = require('path');
 const acorn = require('acorn');
 const isCore = require('is-core-module');
-const umd = require('./acorn-umd/acorn-umd').default;
+const umd = require('./acorn-umd/acorn-umd.ts').default;
 const { buildPreserveLines, buildConcat } = require('./md-nodes');
 
 /** @import { Dep, EvalBuild, MdNode, Package, ParseOptions } from './types' */

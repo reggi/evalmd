@@ -6,6 +6,8 @@
     "ignoreDeprecations": "6.0",
     "noEmit": false,
     "emitDeclarationOnly": false,
+    "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": true,
     "declaration": false,
     "declarationMap": false,
     "paths": {

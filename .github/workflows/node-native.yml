@@ -1,0 +1,21 @@
+name: 'Tests: native TypeScript (node >= 22)'
+
+on: [pull_request, push]
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    uses: ljharb/actions/.github/workflows/node.yml@main
+    with:
+      range: '>= 22'
+      type: majors
+      command: npm run test-native
+
+  node:
+    name: 'native TS'
+    needs: [tests]
+    runs-on: ubuntu-latest
+    steps:
+      - run: true
