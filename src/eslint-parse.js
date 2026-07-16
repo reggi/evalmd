@@ -37,8 +37,14 @@ function loadEslint(cwd) {
     // eslint-disable-next-line preserve-caught-error
     throw new Error('the `--eslint` flag requires `eslint` (8, 9, or 10) to be installed');
   }
-  // eslint-disable-next-line global-require
-  return require(resolved);
+  try {
+    // eslint-disable-next-line global-require
+    return require(resolved);
+  } catch (e) {
+    const reason = /** @type {Error} */ (e).message;
+    // eslint-disable-next-line preserve-caught-error
+    throw new Error(`the \`--eslint\` flag found \`eslint\` at ${resolved} but could not load it, which usually means it requires a newer node than ${process.version}: ${reason}`);
+  }
 }
 
 /** @param {string} cwd */

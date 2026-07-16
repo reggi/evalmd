@@ -1,6 +1,9 @@
 'use strict';
 
 const path = require('path');
+const fs = require('fs');
+const osTmpDir = require('os-tmpdir');
+const mkdirp = require('mkdirp');
 const test = require('tape');
 const resolveParse = require('../src/eslint-parse');
 
@@ -60,6 +63,25 @@ test('normalizeNodePositions leaves a node without a range untouched', (t) => {
   const ast = resolveParse.normalizeNodePositions({ type: 'Program', body: [{ type: 'X' }] });
   t.equal(ast.start, undefined, 'a node with neither start nor range gets no start');
   t.equal(ast.body[0].start, undefined, 'a nested node without a range is left alone');
+  t.end();
+});
+
+test('resolveParse explains itself when eslint resolves but can not be loaded', (t) => {
+  const cwd = path.join(osTmpDir(), 'evalmd-unloadable-eslint');
+  const eslintDir = path.join(cwd, 'node_modules', 'eslint');
+  mkdirp.sync(eslintDir);
+  fs.writeFileSync(path.join(eslintDir, 'package.json'), '{ "name": "eslint", "version": "10.0.0", "main": "index.js" }');
+  fs.writeFileSync(path.join(eslintDir, 'index.js'), 'module.exports = {');
+  t.throws(
+    () => resolveParse('marker.md', '1', cwd),
+    (/could not load it/),
+    'an unloadable eslint yields an actionable error rather than a raw SyntaxError'
+  );
+  fs.unlinkSync(path.join(eslintDir, 'index.js'));
+  fs.unlinkSync(path.join(eslintDir, 'package.json'));
+  fs.rmdirSync(eslintDir);
+  fs.rmdirSync(path.join(cwd, 'node_modules'));
+  fs.rmdirSync(cwd);
   t.end();
 });
 
