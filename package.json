@@ -65,6 +65,7 @@
     "@typescript-eslint/eslint-plugin": "^8.64.0",
     "@typescript-eslint/parser": "^8.64.0",
     "eslint": "^10.7.0",
+    "jiti": "^0.0.0",
     "nyc": "^10.3.2",
     "qs": "^6.15.3",
     "qs-iconv": "^1.0.4",

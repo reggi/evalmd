@@ -11,8 +11,6 @@ jobs:
     with:
       range: '>= 4.2 < 10'
       type: majors
-      # npm 2/3 does not understand `peerDependenciesMeta`, so eslint's optional `jiti` peer trips the `npm ls` check
-      skip-ls-check: true
       build-command: npm run build
       build-output-dir: |
         dist
