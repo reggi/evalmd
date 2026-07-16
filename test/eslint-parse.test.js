@@ -4,6 +4,17 @@ const path = require('path');
 const test = require('tape');
 const resolveParse = require('../src/eslint-parse');
 
+// installed eslint is resolvable but throws a SyntaxError on node older than its engines
+const canLoadEslint = (() => {
+  try {
+    // eslint-disable-next-line global-require
+    require(require.resolve('eslint'));
+    return true;
+  } catch (e) {
+    return false;
+  }
+})();
+
 test('detectFormat finds the flat config at the repo root', (t) => {
   t.equal(resolveParse.detectFormat(process.cwd()), 'flat', 'this repo uses a flat eslint.config.mjs');
   t.end();
@@ -32,7 +43,7 @@ test('detectFormat recognizes eslintrc files and package.json eslintConfig', (t)
   t.end();
 });
 
-test('resolveParse builds a working parser from an eslintrc config', (t) => {
+test('resolveParse builds a working parser from an eslintrc config', { skip: !canLoadEslint }, (t) => {
   resolveParse('marker.md', '1', path.resolve('test/fixtures/eslintrc')).then((parse) => {
     t.equal(typeof parse, 'function', 'a parse function is produced from the legacy config');
     const ast = parse('var x = 1;');

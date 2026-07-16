@@ -3,6 +3,17 @@
 const test = require('tape');
 const main = require('../src/eval-markdown');
 
+// installed eslint is resolvable but throws a SyntaxError on node older than its engines
+const canLoadEslint = (() => {
+  try {
+    // eslint-disable-next-line global-require
+    require(require.resolve('eslint'));
+    return true;
+  } catch (e) {
+    return false;
+  }
+})();
+
 const PKG = './package.json';
 
 function run(files, overrides) {
@@ -138,7 +149,7 @@ test('main returns exit code 1 for a missing file', (t) => {
   });
 });
 
-test('main derives block parsers from the eslint config when useEslint is set', (t) => {
+test('main derives block parsers from the eslint config when useEslint is set', { skip: !canLoadEslint }, (t) => {
   run(['./test-readmes/win.md'], { useEslint: true }).then((report) => {
     t.equal(report.exitCode, 0, 'the eslint-derived parser evaluates the block');
     t.end();
