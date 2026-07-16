@@ -4,19 +4,17 @@ const path = require('path');
 const fs = require('fs');
 const osTmpDir = require('os-tmpdir');
 const mkdirp = require('mkdirp');
+const semver = require('semver');
 const test = require('tape');
 const resolveParse = require('../src/eslint-parse');
 
-// installed eslint is resolvable but throws a SyntaxError on node older than its engines
-const canLoadEslint = (() => {
-  try {
-    // eslint-disable-next-line global-require
-    require(require.resolve('eslint'));
-    return true;
-  } catch (e) {
-    return false;
-  }
-})();
+/*
+ * eslint loads on some node versions it does not support, then fails inside a
+ * dynamic `import()`, so its engines are the only reliable signal here.
+ * `require.resolve` keeps the specifier opaque to `tsc`, which would otherwise
+ * type-check eslint's declarations and break the es5 build.
+ */
+const canLoadEslint = semver.satisfies(process.version, require(require.resolve('eslint/package.json')).engines.node);
 
 test('detectFormat finds the flat config at the repo root', (t) => {
   t.equal(resolveParse.detectFormat(process.cwd()), 'flat', 'this repo uses a flat eslint.config.mjs');

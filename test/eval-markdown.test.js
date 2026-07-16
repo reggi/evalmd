@@ -1,18 +1,16 @@
 'use strict';
 
+const semver = require('semver');
 const test = require('tape');
 const main = require('../src/eval-markdown');
 
-// installed eslint is resolvable but throws a SyntaxError on node older than its engines
-const canLoadEslint = (() => {
-  try {
-    // eslint-disable-next-line global-require
-    require(require.resolve('eslint'));
-    return true;
-  } catch (e) {
-    return false;
-  }
-})();
+/*
+ * eslint loads on some node versions it does not support, then fails inside a
+ * dynamic `import()`, so its engines are the only reliable signal here.
+ * `require.resolve` keeps the specifier opaque to `tsc`, which would otherwise
+ * type-check eslint's declarations and break the es5 build.
+ */
+const canLoadEslint = semver.satisfies(process.version, require(require.resolve('eslint/package.json')).engines.node);
 
 const PKG = './package.json';
 
