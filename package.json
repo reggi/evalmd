@@ -38,7 +38,7 @@
     "yargs": "=11.1.0"
   },
   "devDependencies": {
-    "@arethetypeswrong/cli": "^0.18.4",
+    "@arethetypeswrong/cli": "^0.18.5",
     "@ljharb/eslint-config": "^22.2.3",
     "@ljharb/tsconfig": "^0.3.2",
     "@stylistic/eslint-plugin": "^5.10.0",
@@ -71,7 +71,7 @@
     "qs-iconv": "^1.0.4",
     "semver": "^6.3.1",
     "tape": "^5.10.2",
-    "typescript": "^6.0.3"
+    "typescript": "next"
   },
   "bin": {
     "evalmd": "./dist/script.js",
