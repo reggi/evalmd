@@ -11,6 +11,9 @@ jobs:
     with:
       range: '>= 4.2 < 10'
       type: majors
+      # `typescript@next` (7.x) is outside `@typescript-eslint`'s `<6.1.0` peer range, which the old npm
+      # on node < 10 fails its `npm ls` check on; neither is used here (both need far newer node)
+      skip-ls-check: true
       build-command: npm run build
       build-output-dir: |
         dist
