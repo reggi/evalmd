@@ -91,7 +91,7 @@
     "posttest": "npx npm@\">= 10.2\" audit --production",
     "test-node": "node ./dist/script.js ./test-readmes/qs.md ./test-readmes/fence-spaces.md ./test-readmes/win.md && node ./dist/script.js ./test-readmes/sh.md --eval=js,sh && node ./dist/script.js ./test-readmes/sloppy.md --sloppy",
     "test-native": "tape 'test/**/*.test.js'",
-    "dependencies": "DT_CLEAN_NPM_COMMAND=\"$npm_command\" npx dt-clean@^1.2.0 --auto"
+    "dependencies": "node -p \"process.env.npm_command\" | npx \"dt-clean@^1.2.1\" --auto"
   },
   "engines": {
     "node": ">= 4.2"
