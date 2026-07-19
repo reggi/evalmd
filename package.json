@@ -84,6 +84,7 @@
     "prepack": "npm run build",
     "pretests-only": "npm run build",
     "tests-only": "npm run test-node && npm run test-unit",
+    "tests-only:windows": "npm run test-node && nyc node ./node_modules/tape/bin/tape \"dist-test/test/**/*.test.js\"",
     "test-unit": "nyc tape 'dist-test/test/**/*.test.js'",
     "lint": "eslint .",
     "pretest": "npm run lint",

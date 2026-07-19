@@ -16,7 +16,7 @@ jobs:
       build-output-dir: |
         dist
         dist-test
-      command: npm run tests-only --ignore-scripts
+      command: npm run tests-only:windows --ignore-scripts
 
   node:
     name: 'windows'
