@@ -1,36 +1,36 @@
 'use strict';
 
-const chalk = require('chalk');
+const { styleText, stripVTControlCharacters } = require('util');
 
 /** @param {...any} args */
 function errMsg(...args) {
   const parts = args.slice();
   if (parts.length > 1) {
-    parts[0] = chalk.magenta(parts[0]);
+    parts[0] = styleText('magenta', String(parts[0]));
   }
   return [
-    chalk.white('evalmd'),
-    chalk.red('ERR!'),
+    styleText('white', 'evalmd'),
+    styleText('red', 'ERR!'),
   ].concat(parts).join(' ');
 }
 
 /** @param {...any} args */
 function infoMsg(...args) {
   const parts = args.slice();
-  parts[0] = chalk.magenta(parts[0]);
+  parts[0] = styleText('magenta', String(parts[0]));
   return [
-    chalk.white('evalmd'),
-    chalk.green('info'),
+    styleText('white', 'evalmd'),
+    styleText('green', 'info'),
   ].concat(parts).join(' ');
 }
 
 /** @param {...any} args */
 function debugMsg(...args) {
   const parts = args.slice();
-  parts[0] = chalk.magenta(parts[0]);
+  parts[0] = styleText('magenta', String(parts[0]));
   return [
-    chalk.white('evalmd'),
-    chalk.blue('debug'),
+    styleText('white', 'evalmd'),
+    styleText('blue', 'debug'),
   ].concat(parts).join(' ');
 }
 
@@ -60,7 +60,7 @@ function createLogger(options) {
 
   /** @param {string} data */
   function write(data) {
-    const colorLessData = chalk.stripColor(data);
+    const colorLessData = stripVTControlCharacters(data);
     if (!store.all) {
       store.all = [];
     }

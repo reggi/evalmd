@@ -12,7 +12,6 @@
     "declarationMap": false,
     "paths": {
       "array.prototype.with": ["./types/array.prototype.with"],
-      "chalk": ["./types/chalk"],
       "markdown-it": ["./types/markdown-it"],
       "object.values": ["./types/object.values"],
       "mkdirp": ["./types/mkdirp"]
