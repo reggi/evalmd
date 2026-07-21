@@ -1,9 +1,8 @@
 'use strict';
 
 const crypto = require('crypto');
-const {
-  flatten, groupBy, range, values,
-} = require('lodash');
+const groupBy = require('object.groupby');
+const values = require('object.values');
 
 /** @import { MdNode } from './types' */
 /** @import { Kind, KindValue } from './shell-eval' */
@@ -79,7 +78,7 @@ function searchComment(node, pattern) {
 
 /** @param {number} lines */
 function createLineDoc(lines) {
-  return range(lines).map(() => '');
+  return Array.from({ length: lines }, () => '');
 }
 
 /**
@@ -90,9 +89,11 @@ function createLineDoc(lines) {
 function replaceLines(start, main, sub) {
   const mainLines = Array.isArray(main) ? main : main.split('\n');
   const subLines = Array.isArray(sub) ? sub : sub.split('\n');
-  return flatten([
-    mainLines.slice(0, start || 0), subLines, mainLines.slice((start || 0) + subLines.length, mainLines.length),
-  ]);
+  return /** @type {readonly string[]} */ ([]).concat(
+    mainLines.slice(0, start || 0),
+    subLines,
+    mainLines.slice((start || 0) + subLines.length, mainLines.length),
+  );
 }
 
 /** @param {string} content */
@@ -156,7 +157,7 @@ function filterPrevented(nodes) {
  * @param {number} lines
  */
 function buildPreserveLines(node$, lines) {
-  const nodes = flatten([node$]);
+  const nodes = /** @type {readonly MdNode[]} */ ([]).concat(node$);
   let lineDoc = createLineDoc(lines);
   nodes.forEach((node) => {
     const contentLines = String(node.content || '').split(/\r\n?|\n/);
@@ -167,7 +168,7 @@ function buildPreserveLines(node$, lines) {
 
 /** @param {MdNode | readonly MdNode[]} node$ */
 function buildConcat(node$) {
-  const nodes = flatten([node$]);
+  const nodes = /** @type {readonly MdNode[]} */ ([]).concat(node$);
   return nodes
     .map((node) => node.content)
     .join('');

@@ -1,6 +1,6 @@
 'use strict';
 
-const { flatten } = require('lodash');
+const flat = require('array.prototype.flat');
 const { readFile } = require('fs/promises');
 const MarkdownIt = require('markdown-it');
 const promiseRipple = require('./promise-ripple');
@@ -65,8 +65,8 @@ const {
 
 /** @param {readonly AssembleData[]} mdResults */
 function getExitCode(mdResults) {
-  const evaluations = flatten(mdResults.map((mdResult) => mdResult.evaluated || []));
-  const evalResults = flatten(evaluations.map((evaluation) => evaluation.evalResult));
+  const evaluations = flat(mdResults.map((mdResult) => mdResult.evaluated || []));
+  const evalResults = flat(evaluations.map((evaluation) => evaluation.evalResult));
   const evalResultsInstanceofError = evalResults.map((evalResult) => evalResult instanceof Error);
   const evalResultsHasInstanceofError = evalResultsInstanceofError.indexOf(true) !== -1;
   if (evalResultsHasInstanceofError) { return 1; }
@@ -226,7 +226,7 @@ function main(
 ) {
   evalLangs = evalLangs && evalLangs.length ? evalLangs : ['js'];
   const logger = createLogger({ debug, silence });
-  const filePaths = flatten([filePath$]);
+  const filePaths = /** @type {readonly string[]} */ ([]).concat(filePath$);
   logger.info('it worked if it ends with', 'ok');
   return getPackage(packagePath)
     .then((pkg) => Promise.all(filePaths.map((filePath) => assemble(filePath, pkg, prepend, blockScope, nonstop, preventEval, includePrevented, output, delimeter, evalLangs, useEslint, logger, sloppy))))
