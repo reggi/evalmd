@@ -1,4 +1,4 @@
-name: 'Tests: node.js 10 - 20'
+name: 'Tests: node.js'
 
 on: [pull_request, push]
 
@@ -9,7 +9,7 @@ jobs:
   tests:
     uses: ljharb/actions/.github/workflows/node.yml@main
     with:
-      range: '>= 10 < 20'
+      range: '^22.20 || ^24.10 || >= 25'
       type: majors
       build-command: npm run build
       build-output-dir: |
@@ -18,7 +18,7 @@ jobs:
       command: npm run tests-only --ignore-scripts
 
   node:
-    name: 'node 10 - 20'
+    name: 'node.js'
     needs: [tests]
     runs-on: ubuntu-latest
     steps:

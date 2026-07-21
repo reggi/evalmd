@@ -3,7 +3,7 @@ const path = require('path');
 const yargs = require('yargs');
 const fs = require('fs');
 const evalMarkdown = require('./eval-markdown');
-const argv = yargs
+const { argv } = yargs
   .boolean(['i', 'P', 'b', 'n', 's', 'u', 'd', 'D', 'sloppy', 'eslint'])
   .usage('$0 - Evaluate the javascript in markdown files')
   .example('$0 <file(s)>', 'Evaluate file(s)')
@@ -59,8 +59,7 @@ const argv = yargs
     const pkg = fs.readFileSync(path.join(__dirname, '../package.json'), 'utf8');
     return JSON.parse(pkg).version;
   }()))
-  .wrap(null)
-  .argv;
+  .wrap(null);
 
 const files = argv._;
 
@@ -82,7 +81,7 @@ if (files.length) {
     argv.delimeter,
     evalLangs,
     argv.sloppy,
-    argv.eslint
+    argv.eslint,
   ).then((report: { exitCode: number }) => {
     process.exit(report.exitCode);
   })

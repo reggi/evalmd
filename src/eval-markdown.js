@@ -79,7 +79,7 @@ function getExitCode(mdResults) {
 
 /** @param {string} [packagePath] */
 function getPackage(packagePath) {
-  packagePath = (packagePath) ? packagePath : './package.json';
+  packagePath ||= './package.json';
   return fs.readFileAsync(packagePath, 'utf8')
     .then(JSON.parse)
     .then((pkg) => {
@@ -88,6 +88,8 @@ function getPackage(packagePath) {
     })
     .catch(() => false);
 }
+
+/** @import { MdNode } from './types' */
 
 /**
  * @param {string} filePath
@@ -132,14 +134,15 @@ function assemble(filePath, pkg, prepend, blockScope, nonstop, preventEval, incl
       // eval nodes
       data.kinds = normalizeKinds(evalLangs);
       const evalJs = data.kinds.indexOf('js') !== -1;
-      data.evalNodes = (evalJs) ? ((includePrevented) ? data.allJsFences : data.permittedFences) : [];
-      data.kindFences = {};
-      const kindFences = data.kindFences;
+      data.evalNodes = evalJs ? (includePrevented ? data.allJsFences : data.permittedFences) : [];
+      /** @type {{ [kind: string]: MdNode[]; }} */
+      const kindFences = {};
       const kindNodes = data.nodes || [];
       data.kinds.forEach((kind) => {
         if (kind === 'js') { return; }
         kindFences[kind] = getNodeId(getFences(kindNodes, KIND_LANGS[kind] || [kind]));
       });
+      data.kindFences = kindFences;
       // get the blockscope
       data.blockScope = blockScope
         || Boolean(data.evalNodes.map((node) => node.fileEval).filter((fileEval) => fileEval !== false).length);
@@ -196,7 +199,7 @@ function assemble(filePath, pkg, prepend, blockScope, nonstop, preventEval, incl
  * @param {boolean} useEslint
  */
 function main(filePath$, packagePath, prepend, blockScope, nonstop, preventEval, includePrevented, silence, debug, output, delimeter, evalLangs, sloppy, useEslint) {
-  evalLangs = (evalLangs && evalLangs.length) ? evalLangs : ['js'];
+  evalLangs = evalLangs && evalLangs.length ? evalLangs : ['js'];
   const logger = createLogger({ debug, silence });
   const filePaths = flatten([filePath$]);
   logger.info('it worked if it ends with', 'ok');
@@ -323,7 +326,7 @@ module.exports.assemble = assemble;
  * var text = find(found, {
  *   'type': 'text'
  * })
- * return (text && text.content) ? text.content : false
+ * return text && text.content ? text.content : false
  * }
  */
 

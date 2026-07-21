@@ -73,7 +73,7 @@ test('resolveParse explains itself when eslint resolves but can not be loaded', 
   t.throws(
     () => resolveParse('marker.md', '1', cwd),
     (/could not load it/),
-    'an unloadable eslint yields an actionable error rather than a raw SyntaxError'
+    'an unloadable eslint yields an actionable error rather than a raw SyntaxError',
   );
   fs.unlinkSync(path.join(eslintDir, 'index.js'));
   fs.unlinkSync(path.join(eslintDir, 'package.json'));

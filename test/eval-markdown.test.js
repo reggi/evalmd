@@ -39,7 +39,7 @@ function run(files, overrides) {
     has('delimeter', false),
     o.evalLangs || ['js'],
     has('sloppy', false),
-    has('useEslint', false)
+    has('useEslint', false),
   ).then((report) => {
     restore();
     return report;

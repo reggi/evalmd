@@ -115,8 +115,8 @@ function mapNodes(nodes) {
       || Boolean(searchComment(node, /\/\/\s(prevent\s?eval\s|eval\s?prevent\s)(.+)/i))
       || false;
 
-    node.startLine = (node.map) ? node.map[0] + 1 : false;
-    node.endLine = (node.map) ? node.map[1] - 1 : false;
+    node.startLine = node.map ? node.map[0] + 1 : false;
+    node.endLine = node.map ? node.map[1] - 1 : false;
 
     return node;
   });

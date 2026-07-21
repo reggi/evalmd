@@ -44,7 +44,7 @@
     "@types/estraverse": "^5.1.7",
     "@types/lodash": "^4.17.24",
     "@types/mkdirp": "^0.5.2",
-    "@types/node": "^12.20.55",
+    "@types/node": "^22.20.1",
     "@types/object.assign": "^4.1.0",
     "@types/object.entries": "^1.1.1",
     "@types/os-tmpdir": "^1.0.2",
@@ -55,9 +55,8 @@
     "@types/yargs": "^11.1.0",
     "@typescript-eslint/eslint-plugin": "^8.65.0",
     "@typescript-eslint/parser": "^8.65.0",
+    "c8": "^12.0.0",
     "eslint": "^10.7.0",
-    "jiti": "^0.0.0",
-    "nyc": "^10.3.2",
     "qs": "^6.15.3",
     "qs-iconv": "^1.0.4",
     "semver": "^6.3.1",
@@ -75,8 +74,7 @@
     "prepack": "npm run build",
     "pretests-only": "npm run build",
     "tests-only": "npm run test-node && npm run test-unit",
-    "tests-only:windows": "npm run test-node && nyc node ./node_modules/tape/bin/tape \"dist-test/test/**/*.test.js\"",
-    "test-unit": "nyc tape 'dist-test/test/**/*.test.js'",
+    "test-unit": "c8 tape \"dist-test/test/**/*.test.js\"",
     "prelint": "npm run build && node ./dist/script.js README.md",
     "lint": "eslint .",
     "pretest": "npm run lint",
@@ -87,6 +85,6 @@
     "dependencies": "node -p \"process.env.npm_command\" | npx \"dt-clean@^1.2.1\" --auto"
   },
   "engines": {
-    "node": ">= 4.2"
+    "node": "^22.20 || ^24.10 || >= 25"
   }
 }

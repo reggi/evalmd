@@ -75,12 +75,12 @@ function createLogger(options) {
     store,
     /** @param {...any} args */
     info(...args) {
-      return write(infoMsg.apply(null, args));
+      return write(infoMsg(...args));
     },
     /** @param {...any} args */
     debug(...args) {
       if (debug) {
-        return write(debugMsg.apply(null, args));
+        return write(debugMsg(...args));
       }
       return undefined;
     },

@@ -9,14 +9,14 @@ jobs:
   tests:
     uses: ljharb/actions/.github/workflows/node.yml@main
     with:
-      range: '>= 4.2'
+      range: '^22.20 || ^24.10 || >= 25'
       type: majors
       os: windows-latest
       build-command: npm run build
       build-output-dir: |
         dist
         dist-test
-      command: npm run tests-only:windows --ignore-scripts
+      command: npm run tests-only --ignore-scripts
 
   node:
     name: 'windows'

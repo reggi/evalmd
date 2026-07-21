@@ -1,5 +1,5 @@
 import base from '@ljharb/eslint-config';
-import ljharbConfig from '@ljharb/eslint-config/flat/node/4';
+import ljharbConfig from '@ljharb/eslint-config/flat/node/22';
 import stylistic from '@stylistic/eslint-plugin';
 import tsPlugin from '@typescript-eslint/eslint-plugin';
 import tsParser from '@typescript-eslint/parser';
@@ -16,6 +16,7 @@ const [, ...noExtraParensOptions] = base.rules['no-extra-parens'].map((opt) => (
 
 /** @type {Record<string, unknown>} */
 const overrides = {
+  eqeqeq: ['error', 'allow-null'],
   'func-style': 'off',
   'id-length': 'off',
   indent: [
@@ -28,6 +29,7 @@ const overrides = {
   'max-nested-callbacks': 'off',
   'max-params': 'off',
   'no-extra-parens': 'off', // strips JSDoc `/** @type */ (cast)` parens on --fix
+  'prefer-named-capture-group': 'warn',
   'sort-keys': 'off',
 };
 

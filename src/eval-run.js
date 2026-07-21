@@ -113,14 +113,16 @@ function evaluate(
   nonstop,
   filePath,
   logger,
-  sloppy
+  sloppy,
 ) {
   return promiseRipple(node, {
     notice(node) {
       const ids = Array.isArray(node) ? node.map((n) => n.id) : [node.id];
-      const word = (ids.length > 1) ? 'blocks' : 'block';
+      const word = ids.length > 1 ? 'blocks' : 'block';
       logger.info(filePath, [
-        'running', word, ids.join(', '),
+        'running',
+        word,
+        ids.join(', '),
       ].join(' '));
     },
     evalCode(node) {
@@ -140,10 +142,11 @@ function evaluate(
       });
       return node;
     },
-    fileCreated(node) {
-      if (!node.evalCode || node.evalCode instanceof Error || !node.fileEvalHashPath) { return false; }
-      const evalCode = node.evalCode;
-      const fileEvalHashPath = node.fileEvalHashPath;
+    fileCreated({ evalCode, fileEvalHashPath }) {
+      if (!evalCode || evalCode instanceof Error || !fileEvalHashPath) {
+        return false;
+      }
+
       const dirs = path.dirname(fileEvalHashPath);
       return fs.mkdirsAsync(dirs)
         .then(() => fs.writeFileAsync(fileEvalHashPath, evalCode.preserveAlter)
@@ -182,7 +185,7 @@ function evaluateScope(
   filePath,
   blockScope,
   logger,
-  sloppy
+  sloppy,
 ) {
   if (blockScope) {
     return promiseSeries(nodes, (node, _index, nodes) => evaluate(node, nodes, markdownLinesLength, pkg, prepend, nonstop, filePath, logger, sloppy));
@@ -218,12 +221,12 @@ function outputCode(
   output,
   delimeter,
   logger,
-  sloppy
+  sloppy,
 ) {
   return promiseRipple(node, {
     notice(node) {
       const ids = Array.isArray(node) ? node.map((n) => n.id) : [node.id];
-      const word = (ids.length > 1) ? 'blocks' : 'block';
+      const word = ids.length > 1 ? 'blocks' : 'block';
       logger.info(filePath, [
         'outputting', word, ids.join(', '),
       ].join(' '));
@@ -243,7 +246,9 @@ function outputCode(
       if (output === 'preserve' || output === 'concat' || output === 'preserveAlter' || output === 'concatAlter') {
         process.stdout.write(node.evalCode[output]);
       }
-      delimeter = (delimeter === true) ? '//EVALMD-STDOUT-FILE-DELIMETER' : delimeter;
+      if (delimeter === true) {
+        delimeter = '//EVALMD-STDOUT-FILE-DELIMETER';
+      }
       if (delimeter) { process.stdout.write(delimeter); }
       return true;
     },
@@ -274,7 +279,7 @@ function outputScope(
   output,
   delimeter,
   logger,
-  sloppy
+  sloppy,
 ) {
   if (blockScope) {
     return promiseSeries(nodes, (node, _index, nodes) => outputCode(node, nodes, markdownLinesLength, pkg, prepend, nonstop, filePath, output, delimeter, logger, sloppy));

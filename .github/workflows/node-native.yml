@@ -1,4 +1,4 @@
-name: 'Tests: native TypeScript (node >= 22)'
+name: 'Tests: native TypeScript'
 
 on: [pull_request, push]
 
@@ -9,7 +9,7 @@ jobs:
   tests:
     uses: ljharb/actions/.github/workflows/node.yml@main
     with:
-      range: '>= 22'
+      range: '^22.20 || ^24.10 || >= 25'
       type: majors
       command: npm run test-native
 

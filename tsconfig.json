@@ -19,7 +19,7 @@
     },
     "rootDir": "./src",
     "outDir": "./dist",
-    "maxNodeModuleJsDepth": 0
+    "types": ["node"],
   },
   "exclude": ["coverage", "dist", "dist-test", "eslint.config.mjs", "test"]
 }

@@ -77,10 +77,9 @@ function alterAssignedModule(code, _prepend, pkg, parseOpts) {
   if (!pkg) { return code; }
   const deps = getDeps(code, parseOpts);
   if (!deps.length) { return code; }
-  let name = pkg.name;
-  let chars = 0;
-  name = regExpEscape(name);
+  const name = regExpEscape(pkg.name);
   const pattern = new RegExp(`^${name}($|/.*)`);
+  let chars = 0;
   deps.forEach((dep) => {
     const match = dep.source.value.match(pattern);
     if (match) {
@@ -128,7 +127,7 @@ function alterSelfModules(code, nodes, parseOpts) {
 function alterPrependModules(code, nodes, prepend, parseOpts) {
   const deps = getDeps(code, parseOpts);
   if (!deps.length) { return code; }
-  prepend = (prepend) ? prepend : './';
+  prepend ||= './';
   const localRegex = /^.\.\/|^.\//;
   let chars = 0;
   deps.forEach((dep) => {
@@ -155,7 +154,7 @@ function alterPrependModules(code, nodes, prepend, parseOpts) {
 function alterNpmModules(code, _nodes, prepend, parseOpts) {
   const deps = getDeps(code, parseOpts);
   if (!deps.length) { return code; }
-  prepend = (prepend) ? prepend : './';
+  prepend ||= './';
   const nonNpm = /^.\.\/|^.\/|^\//;
   let chars = 0;
   deps.forEach((dep) => {

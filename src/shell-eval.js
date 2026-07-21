@@ -2,18 +2,17 @@
 
 const childProcess = require('child_process');
 
-/** @type {{ [kind: string]: string[] }} */
-const KIND_LANGS = {
+const KIND_LANGS = /** @type {const} */ ({
   js: ['js', 'javascript'],
   sh: ['sh'],
-};
+});
 
 /** @param {readonly string[]} evalLangs */
 function normalizeKinds(evalLangs) {
   /** @type {string[]} */
   const kinds = [];
   evalLangs.forEach((lang) => {
-    const kind = (lang === 'javascript') ? 'js' : lang;
+    const kind = lang === 'javascript' ? 'js' : lang;
     if (kind && kinds.indexOf(kind) === -1) { kinds.push(kind); }
   });
   return kinds;
@@ -44,8 +43,8 @@ function runPromptCommand(command) {
   return new Promise((resolve) => {
     childProcess.exec(mergeStderrIntoStdout, (error, stdout) => {
       resolve({
-        code: (error) ? ((typeof error.code === 'number') ? error.code : 1) : 0,
-        output: String((stdout === null || stdout === undefined) ? '' : stdout),
+        code: error ? (typeof error.code === 'number' ? error.code : 1) : 0,
+        output: String(stdout == null ? '' : stdout),
       });
     });
   });

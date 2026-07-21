@@ -33,8 +33,7 @@ function loadEslint(cwd) {
   let resolved;
   try {
     resolved = resolveFrom('eslint', cwd);
-  } catch (e) {
-    // eslint-disable-next-line preserve-caught-error
+  } catch {
     throw new Error('the `--eslint` flag requires `eslint` (8, 9, or 10) to be installed');
   }
   try {
@@ -58,7 +57,7 @@ function useAtYourOwnRisk(cwd) {
   try {
     // eslint-disable-next-line global-require
     return require(resolveFrom('eslint/use-at-your-own-risk', cwd));
-  } catch (e) {
+  } catch {
     return {};
   }
 }
@@ -84,7 +83,7 @@ function detectFormat(fromDir) {
       if (JSON.parse(fs.readFileSync(pkgPath, 'utf8')).eslintConfig) {
         return 'eslintrc';
       }
-    } catch (e) {}
+    } catch {}
   }
   const parent = path.dirname(fromDir);
   if (parent === fromDir) {
@@ -102,9 +101,9 @@ function eslintClass(format, cwd) {
   const major = eslintMajor(cwd);
   const legacy = useAtYourOwnRisk(cwd);
   if (format === 'eslintrc') {
-    return (major <= 8) ? eslint.ESLint : (legacy.LegacyESLint || eslint.ESLint);
+    return major <= 8 ? eslint.ESLint : (legacy.LegacyESLint || eslint.ESLint);
   }
-  return (major >= 9) ? eslint.ESLint : (legacy.FlatESLint || eslint.ESLint);
+  return major >= 9 ? eslint.ESLint : (legacy.FlatESLint || eslint.ESLint);
 }
 
 /** @param {any} node */
@@ -114,11 +113,11 @@ function visitNode(node) {
   }
   if (typeof node.type === 'string') {
     if (node.start === undefined && node.range) {
-      // eslint-disable-next-line no-param-reassign
+      // eslint-disable-next-line no-param-reassign, prefer-destructuring
       node.start = node.range[0];
     }
     if (node.end === undefined && node.range) {
-      // eslint-disable-next-line no-param-reassign
+      // eslint-disable-next-line no-param-reassign, prefer-destructuring
       node.end = node.range[1];
     }
   }
@@ -151,17 +150,21 @@ function normalizeNodePositions(ast) {
  * @param {string} cwd
  */
 function parserFor(config, cwd) {
-  const languageOptions = config.languageOptions;
+  const { languageOptions } = config;
   if (languageOptions) {
-    const flatOptions = { ecmaVersion: languageOptions.ecmaVersion, sourceType: languageOptions.sourceType };
-    Object.assign(flatOptions, languageOptions.parserOptions);
+    const flatOptions = {
+      ecmaVersion: languageOptions.ecmaVersion,
+      sourceType: languageOptions.sourceType,
+      ...languageOptions.parserOptions,
+    };
     return { parser: languageOptions.parser || loadEspree(cwd), options: flatOptions };
   }
   // eslint-disable-next-line global-require
   const rcParser = config.parser ? require(config.parser) : loadEspree(cwd);
-  const rcOptions = {};
-  Object.assign(rcOptions, config.parserOptions);
-  return { parser: rcParser, options: rcOptions };
+  return {
+    parser: rcParser,
+    options: { ...config.parserOptions },
+  };
 }
 
 /**
@@ -170,8 +173,7 @@ function parserFor(config, cwd) {
  */
 function toParseFn(config, cwd) {
   const resolved = parserFor(config, cwd);
-  const parser = resolved.parser;
-  const options = resolved.options;
+  const { parser, options } = resolved;
   return /** @param {string} code */ function (code) {
     const result = parser.parseForESLint
       ? parser.parseForESLint(code, options)
