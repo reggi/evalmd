@@ -1,8 +1,11 @@
 'use strict';
 
-const osTmpDir = require('os-tmpdir');
 const path = require('path');
 const childProcess = require('child_process');
+
+const osTmpDir = require('os-tmpdir');
+const assign = require('object.assign');
+
 const {
   mkdir,
   writeFile,
@@ -132,7 +135,7 @@ function evaluate(
     },
     fileName(node) {
       const fileEvalHash = typeof node.fileEval === 'string' ? getHash(node.fileEval) : getHash(filePath + node.id);
-      Object.assign(node, {
+      assign(node, {
         fileEvalHash,
         fileEvalHashPath: path.join(temp, `${fileEvalHash}.js`),
       });

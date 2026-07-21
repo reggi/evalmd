@@ -1,5 +1,6 @@
 'use strict';
 
+const assign = require('object.assign');
 const entries = require('object.entries');
 
 /**
@@ -20,7 +21,7 @@ function promiseRipple(start, props) {
       if (start === value) {
         return value;
       }
-      Object.assign(start, { [key]: value });
+      assign(start, { [key]: value });
       return value;
 
     });
