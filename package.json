@@ -18,7 +18,6 @@
     "markdown",
     "test"
   ],
-  "preferglobal": true,
   "author": "Thomas Reggi <thomas@reggi.com>",
   "dependencies": {
     "acorn": "^7.4.1",
