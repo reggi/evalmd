@@ -2,11 +2,11 @@
 
 const path = require('path');
 const acorn = require('acorn');
+const estraverse = require('estraverse');
 const isCore = require('is-core-module');
-const umd = require('./acorn-umd/acorn-umd.ts').default;
 const { buildPreserveLines, buildConcat } = require('./md-nodes');
 
-/** @import { Dep, EvalBuild, MdNode, Package, ParseOptions } from './types' */
+/** @import { Dep, EsNode, EvalBuild, MdNode, Package, ParseOptions } from './types' */
 
 /**
  * @param {string} str
@@ -36,19 +36,35 @@ function regExpEscape(s) {
 function getDeps(code, parseOpts) {
   const opts = parseOpts || {};
   const ast = opts.parse ? opts.parse(code) : acorn.parse(code, { sourceType: opts.sloppy ? 'script' : 'module', ecmaVersion: 6 });
-  const deps = umd(ast, {
-    es6: true, amd: true, cjs: true,
-  });
-  return Array.from(new Set(deps)).map((dep) => {
-    const source = dep.source;
-    return {
+  /** @type {Dep[]} */
+  const deps = [];
+  /** @param {EsNode | undefined} source */
+  function pushSource(source) {
+    deps[deps.length] = {
       source: {
         value: String(source && 'value' in source ? source.value : ''),
-        start: source ? source.start : 0,
-        end: source ? source.end : 0,
+        start: source?.start ?? 0,
+        end: source?.end ?? 0,
       },
     };
+  }
+  estraverse.traverse(ast, {
+    fallback: 'iteration',
+    enter(node) {
+      const esNode = /** @type {EsNode} */ (node);
+      if (esNode.type === 'ImportDeclaration') {
+        pushSource(esNode.source);
+      } else if (
+        esNode.type === 'CallExpression'
+        && esNode.callee?.type === 'Identifier'
+        && esNode.callee.name === 'require'
+        && esNode.arguments?.length
+      ) {
+        pushSource(esNode.arguments[0]);
+      }
+    },
   });
+  return deps.sort((a, b) => a.source.start - b.source.start);
 }
 
 /**

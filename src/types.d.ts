@@ -29,12 +29,6 @@ export interface EsNode {
   default?: boolean;
 }
 
-export interface UmdOptions {
-  cjs?: boolean;
-  amd?: boolean;
-  es6?: boolean;
-}
-
 export interface EvalBuild {
   preserve: string;
   concat: string;
