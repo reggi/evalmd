@@ -13,8 +13,7 @@
     "paths": {
       "array.prototype.with": ["./types/array.prototype.with"],
       "markdown-it": ["./types/markdown-it"],
-      "object.values": ["./types/object.values"],
-      "mkdirp": ["./types/mkdirp"]
+      "object.values": ["./types/object.values"]
     },
     "rootDir": "./src",
     "outDir": "./dist",

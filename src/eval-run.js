@@ -5,7 +5,6 @@ const path = require('path');
 const childProcess = require('child_process');
 const promisify = require('util.promisify');
 const nodeFs = require('fs');
-const mkdirp = require('mkdirp');
 const promiseRipple = require('./promise-ripple');
 const promiseSeries = require('./promise-series');
 const {
@@ -25,7 +24,6 @@ const {
 const temp = path.join(osTmpDir(), 'evalmd');
 
 const fs = {
-  mkdirsAsync: promisify(mkdirp),
   writeFileAsync: promisify(nodeFs.writeFile),
   unlinkAsync: promisify(nodeFs.unlink),
 };
@@ -148,7 +146,7 @@ function evaluate(
       }
 
       const dirs = path.dirname(fileEvalHashPath);
-      return fs.mkdirsAsync(dirs)
+      return nodeFs.promises.mkdir(dirs, { recursive: true })
         .then(() => fs.writeFileAsync(fileEvalHashPath, evalCode.preserveAlter)
           .then(() => true));
     },
