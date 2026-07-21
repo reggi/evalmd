@@ -4,6 +4,7 @@ const yargs = require('yargs');
 const fs = require('fs');
 const evalMarkdown = require('./eval-markdown');
 const argv = yargs
+  .boolean(['i', 'P', 'b', 'n', 's', 'u', 'd', 'D', 'sloppy', 'eslint'])
   .usage('$0 - Evaluate the javascript in markdown files')
   .example('$0 <file(s)>', 'Evaluate file(s)')
   .example('$0 <file(s)> -n', 'Evaluate file(s) uninterrupted')
