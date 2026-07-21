@@ -31,8 +31,8 @@
     "object.entries": "^1.1.9",
     "object.values": "^1.2.1",
     "os-tmpdir": "^1.0.2",
-    "util.promisify": "^1.1.3",
-    "yargs": "=11.1.0"
+    "pargs": "^1.4.2",
+    "util.promisify": "^1.1.3"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.5",
@@ -50,7 +50,6 @@
     "@types/qs": "^6.15.1",
     "@types/semver": "^6.2.7",
     "@types/util.promisify": "^1.0.9",
-    "@types/yargs": "^11.1.0",
     "@typescript-eslint/eslint-plugin": "^8.65.0",
     "@typescript-eslint/parser": "^8.65.0",
     "c8": "^12.0.0",
