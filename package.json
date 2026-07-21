@@ -2,7 +2,7 @@
   "name": "evalmd",
   "version": "0.0.22",
   "description": "Evaluates javascript code blocks from markdown files.",
-  "main": "dist/script.js",
+  "main": "dist/eval-markdown.js",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -82,6 +82,7 @@
     "tests-only": "npm run test-node && npm run test-unit",
     "tests-only:windows": "npm run test-node && nyc node ./node_modules/tape/bin/tape \"dist-test/test/**/*.test.js\"",
     "test-unit": "nyc tape 'dist-test/test/**/*.test.js'",
+    "prelint": "npm run build && node ./dist/script.js README.md",
     "lint": "eslint .",
     "pretest": "npm run lint",
     "test": "npm run tests-only",
