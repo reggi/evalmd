@@ -1,3 +1,5 @@
+import { Kind } from './shell-eval';
+
 export interface EsNode {
   type: string;
   start: number;
@@ -92,7 +94,7 @@ export interface AssembleData {
   allJsFences?: MdNode[];
   permittedFences?: MdNode[];
   evalNodes?: MdNode[];
-  kinds?: string[];
+  kinds?: Kind[];
   kindFences?: { [kind: string]: MdNode[] };
   blockScope?: boolean;
   evaluated?: { evalResult?: unknown }[] | false;

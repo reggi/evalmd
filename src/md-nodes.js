@@ -6,6 +6,7 @@ const {
 } = require('lodash');
 
 /** @import { MdNode } from './types' */
+/** @import { Kind, KindValue } from './shell-eval' */
 
 /**
  * @param {MdNode} node
@@ -132,13 +133,15 @@ function getNodeId(nodes) {
 
 /**
  * @param {readonly MdNode[]} nodes
- * @param {string[]} langs
+ * @param {readonly (Kind | KindValue)[]} langs
  */
 function getFences(nodes, langs) {
   return nodes.filter((node) => {
     if (node.type !== 'fence') { return false; }
     if (!langs && node.type === 'fence') { return true; }
-    const lang = String(node.info || '').trim().split(/\s+/)[0];
+    const lang = /** @type {Kind | KindValue} */ (
+      String(node.info || '').trim().split(/\s+/)[0]
+    );
     return langs.indexOf(lang) !== -1;
   });
 }

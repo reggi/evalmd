@@ -7,13 +7,17 @@ const KIND_LANGS = /** @type {const} */ ({
   sh: ['sh'],
 });
 
-/** @param {readonly string[]} evalLangs */
+/** @typedef {keyof typeof KIND_LANGS} Kind */
+/** @typedef {typeof KIND_LANGS[Kind][number]} KindValue */
+
+/** @param {readonly KindValue[]} evalLangs */
 function normalizeKinds(evalLangs) {
-  /** @type {string[]} */
+  /** @type {Kind[]} */
   const kinds = [];
   evalLangs.forEach((lang) => {
+    /** @type {Kind} */
     const kind = lang === 'javascript' ? 'js' : lang;
-    if (kind && kinds.indexOf(kind) === -1) { kinds.push(kind); }
+    if (kind && kinds.indexOf(kind) === -1) { kinds[kinds.length] = kind; }
   });
   return kinds;
 }

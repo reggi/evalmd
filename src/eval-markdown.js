@@ -61,6 +61,7 @@ const {
 } = require('./eval-run');
 
 /** @import { AssembleData, Logger, Package } from './types' */
+/** @import { Kind, KindValue } from './shell-eval' */
 
 /** @param {readonly AssembleData[]} mdResults */
 function getExitCode(mdResults) {
@@ -96,13 +97,27 @@ function getPackage(packagePath) {
  * @param {boolean} includePrevented
  * @param {string | boolean} output
  * @param {string | boolean} delimeter
- * @param {readonly string[]} evalLangs
+ * @param {readonly KindValue[]} evalLangs
  * @param {boolean} useEslint
  * @param {Logger} logger
  * @param {boolean} sloppy
  * @returns {Promise<AssembleData>}
  */
-function assemble(filePath, pkg, prepend, blockScope, nonstop, preventEval, includePrevented, output, delimeter, evalLangs, useEslint, logger, sloppy) {
+function assemble(
+  filePath,
+  pkg,
+  prepend,
+  blockScope,
+  nonstop,
+  preventEval,
+  includePrevented,
+  output,
+  delimeter,
+  evalLangs,
+  useEslint,
+  logger,
+  sloppy,
+) {
   // get the markdown file contents
   /** @type {AssembleData} */
   const initial = {};
@@ -130,7 +145,7 @@ function assemble(filePath, pkg, prepend, blockScope, nonstop, preventEval, incl
       data.kinds = normalizeKinds(evalLangs);
       const evalJs = data.kinds.indexOf('js') !== -1;
       data.evalNodes = evalJs ? (includePrevented ? data.allJsFences : data.permittedFences) : [];
-      /** @type {{ [kind: string]: MdNode[]; }} */
+      /** @type {{ [kind in Kind]?: MdNode[]; }} */
       const kindFences = {};
       const kindNodes = data.nodes || [];
       data.kinds.forEach((kind) => {
@@ -189,11 +204,26 @@ function assemble(filePath, pkg, prepend, blockScope, nonstop, preventEval, incl
  * @param {boolean} debug
  * @param {string | boolean} output
  * @param {string | boolean} delimeter
- * @param {readonly string[]} evalLangs
+ * @param {readonly KindValue[]} evalLangs
  * @param {boolean} sloppy
  * @param {boolean} useEslint
  */
-function main(filePath$, packagePath, prepend, blockScope, nonstop, preventEval, includePrevented, silence, debug, output, delimeter, evalLangs, sloppy, useEslint) {
+function main(
+  filePath$,
+  packagePath,
+  prepend,
+  blockScope,
+  nonstop,
+  preventEval,
+  includePrevented,
+  silence,
+  debug,
+  output,
+  delimeter,
+  evalLangs,
+  sloppy,
+  useEslint,
+) {
   evalLangs = evalLangs && evalLangs.length ? evalLangs : ['js'];
   const logger = createLogger({ debug, silence });
   const filePaths = flatten([filePath$]);
