@@ -3,8 +3,11 @@
 const osTmpDir = require('os-tmpdir');
 const path = require('path');
 const childProcess = require('child_process');
-const promisify = require('util.promisify');
-const nodeFs = require('fs');
+const {
+  mkdir,
+  writeFile,
+  unlink,
+} = require('fs/promises');
 const promiseRipple = require('./promise-ripple');
 const promiseSeries = require('./promise-series');
 const {
@@ -22,11 +25,6 @@ const {
 } = require('./shell-eval');
 
 const temp = path.join(osTmpDir(), 'evalmd');
-
-const fs = {
-  writeFileAsync: promisify(nodeFs.writeFile),
-  unlinkAsync: promisify(nodeFs.unlink),
-};
 
 /** @import { AssembleData, ConcatNode, Logger, MdNode, Package } from './types' */
 
@@ -146,8 +144,8 @@ function evaluate(
       }
 
       const dirs = path.dirname(fileEvalHashPath);
-      return nodeFs.promises.mkdir(dirs, { recursive: true })
-        .then(() => fs.writeFileAsync(fileEvalHashPath, evalCode.preserveAlter)
+      return mkdir(dirs, { recursive: true })
+        .then(() => writeFile(fileEvalHashPath, evalCode.preserveAlter)
           .then(() => true));
     },
     evalResult(node) {
@@ -158,7 +156,7 @@ function evaluate(
     },
     fileRemove(node) {
       if (!node.fileCreated || !node.fileEvalHashPath) { return false; }
-      return fs.unlinkAsync(node.fileEvalHashPath);
+      return unlink(node.fileEvalHashPath);
     },
   });
 }

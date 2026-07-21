@@ -1,8 +1,7 @@
 'use strict';
 
 const { flatten } = require('lodash');
-const promisify = require('util.promisify');
-const nodeFs = require('fs');
+const { readFile } = require('fs/promises');
 const MarkdownIt = require('markdown-it');
 const promiseRipple = require('./promise-ripple');
 const resolveParse = require('./eslint-parse');
@@ -61,10 +60,6 @@ const {
   evaluateAllKinds,
 } = require('./eval-run');
 
-const fs = {
-  readFileAsync: promisify(nodeFs.readFile),
-};
-
 /** @import { AssembleData, Logger, Package } from './types' */
 
 /** @param {readonly AssembleData[]} mdResults */
@@ -80,7 +75,7 @@ function getExitCode(mdResults) {
 /** @param {string} [packagePath] */
 function getPackage(packagePath) {
   packagePath ||= './package.json';
-  return fs.readFileAsync(packagePath, 'utf8')
+  return readFile(packagePath, 'utf8')
     .then(JSON.parse)
     .then((pkg) => {
       pkg.path = packagePath;
@@ -113,7 +108,7 @@ function assemble(filePath, pkg, prepend, blockScope, nonstop, preventEval, incl
   const initial = {};
   return promiseRipple(initial, {
     markdown() {
-      return fs.readFileAsync(filePath, 'utf8');
+      return readFile(filePath, 'utf8');
     },
     /** @param {AssembleData} data */
     processNodes(data) {
