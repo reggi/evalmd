@@ -20,6 +20,8 @@ const RC_NAMES = [
   '.eslintrc',
 ];
 
+/** @import { EsNode } from './types' */
+
 /**
  * @param {string} id
  * @param {string} cwd
@@ -62,7 +64,10 @@ function useAtYourOwnRisk(cwd) {
   }
 }
 
-/** @param {string} cwd */
+/**
+ * @param {string} cwd
+ * @returns {Parser}
+ */
 function loadEspree(cwd) {
   const eslintDir = path.dirname(resolveFrom('eslint/package.json', cwd));
   // eslint-disable-next-line global-require
@@ -106,47 +111,67 @@ function eslintClass(format, cwd) {
   return major >= 9 ? eslint.ESLint : (legacy.FlatESLint || eslint.ESLint);
 }
 
-/** @param {any} node */
+/** @param {EsNode} node */
 function visitNode(node) {
   if (!node || typeof node !== 'object') {
     return;
   }
-  if (typeof node.type === 'string') {
-    if (node.start === undefined && node.range) {
-      // eslint-disable-next-line no-param-reassign, prefer-destructuring
-      node.start = node.range[0];
+  const { range } = node;
+  if (typeof node.type === 'string' && range) {
+    if (node.start === undefined) {
+      [node.start] = range;
     }
-    if (node.end === undefined && node.range) {
-      // eslint-disable-next-line no-param-reassign, prefer-destructuring
-      node.end = node.range[1];
+    if (node.end === undefined) {
+      [, node.end] = range;
     }
   }
-  Object.keys(node).forEach((key) => {
+
+  const record = /** @type {Record<string, unknown>} */ (/** @type {unknown} */ (node));
+  Object.keys(record).forEach((key) => {
     if (key === 'parent') {
       return;
     }
-    /** @type {any} */
-    const value = node[key];
+    const value = record[key];
     if (Array.isArray(value)) {
-      value.forEach(/** @param {any} item */ (item) => visitNode(item));
-    } else {
-      /** @type {any} */
-      const obj = value;
-      if (obj && typeof obj === 'object' && typeof obj.type === 'string') {
-        visitNode(obj);
-      }
+      value.forEach((item) => visitNode(item));
+    } else if (value && typeof value === 'object' && 'type' in value && typeof value.type === 'string') {
+      visitNode(/** @type {EsNode} */ (value));
     }
   });
 }
 
-/** @param {any} ast */
+/**
+ * @template {EsNode} T
+ * @param {T} ast
+ * @returns {T}
+ */
 function normalizeNodePositions(ast) {
   visitNode(ast);
   return ast;
 }
 
 /**
- * @param {any} config
+ * @typedef {{
+ *   parse: (code: string, options?: unknown) => EsNode,
+ *   parseForESLint?: (code: string, options?: unknown) => { ast: EsNode },
+ * }} Parser
+ */
+
+/**
+ * @typedef {{
+ *   languageOptions?: {
+ *     ecmaVersion?: unknown,
+ *     sourceType?: unknown,
+ *     parserOptions?: object,
+ *     parser?: Parser,
+ *   },
+ *   parser?: string,
+ *   parserOptions?: object,
+ * }} EslintConfig
+ */
+
+/**
+ * @param {EslintConfig} config
  * @param {string} cwd
  */
 function parserFor(config, cwd) {
@@ -160,7 +185,7 @@ function parserFor(config, cwd) {
     return { parser: languageOptions.parser || loadEspree(cwd), options: flatOptions };
   }
   // eslint-disable-next-line global-require
-  const rcParser = config.parser ? require(config.parser) : loadEspree(cwd);
+  const rcParser = config.parser ? /** @type {Parser} */ (require(config.parser)) : loadEspree(cwd);
   return {
     parser: rcParser,
     options: { ...config.parserOptions },
@@ -168,7 +193,7 @@ function parserFor(config, cwd) {
 }
 
 /**
- * @param {any} config
+ * @param {EslintConfig} config
  * @param {string} cwd
  */
 function toParseFn(config, cwd) {

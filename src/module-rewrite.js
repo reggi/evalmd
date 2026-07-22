@@ -6,7 +6,17 @@ const estraverse = require('estraverse');
 const isCore = require('is-core-module');
 const { buildPreserveLines, buildConcat } = require('./md-nodes');
 
-/** @import { Dep, EsNode, EvalBuild, MdNode, Package, ParseOptions } from './types' */
+/**
+ * @import {
+ *  Dep,
+ *  EsNode,
+ *  EvalBuild,
+ *  MdNode,
+ *  Package,
+ *  ParseOptions,
+ * } from './types'
+ */
+/** @import { Node } from 'estree' */
 
 /**
  * @param {string} str
@@ -48,7 +58,7 @@ function getDeps(code, parseOpts) {
       },
     };
   }
-  estraverse.traverse(ast, {
+  estraverse.traverse(/** @type {Node} */ (ast), {
     fallback: 'iteration',
     enter(node) {
       const esNode = /** @type {EsNode} */ (node);

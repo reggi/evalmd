@@ -1,35 +1,11 @@
 import { Kind } from './shell-eval';
 
-export interface EsNode {
-  type: string;
-  start: number;
-  end: number;
-  stop?: number;
-  body?: EsNode[];
-  name?: string;
-  raw?: string;
-  value?: unknown;
-  callee?: EsNode;
-  object?: EsNode;
-  property?: EsNode;
-  arguments?: EsNode[];
-  elements?: EsNode[];
-  params?: EsNode[];
-  expression?: EsNode;
-  id?: EsNode;
-  init?: EsNode;
-  key?: EsNode;
-  left?: EsNode;
-  right?: EsNode;
-  source?: EsNode;
-  local?: EsNode;
-  imported?: EsNode;
-  reference?: EsNode;
-  specifiers?: EsNode[];
-  sources?: EsNode[];
-  imports?: [EsNode, EsNode | undefined][];
-  default?: boolean;
-}
+import type { TSESTree } from '@typescript-eslint/types';
+
+export type EsNode = TSESTree.Node & {
+  start?: number;
+  end?: number;
+};
 
 export interface EvalBuild {
   preserve: string;
@@ -52,7 +28,7 @@ export interface Dep {
 }
 
 export interface ParseOptions {
-  parse?: ((code: string) => any) | false;
+  parse?: ((code: string) => EsNode) | false;
   sloppy?: boolean;
 }
 
@@ -78,7 +54,7 @@ export interface MdNode {
   fileCreated?: boolean;
   fileName?: MdNode;
   evalResult?: unknown;
-  parse?: ((code: string) => any) | false;
+  parse?: ((code: string) => unknown) | false;
   fileRemove?: unknown;
   notice?: unknown;
   evaluated?: MdNode[];
@@ -95,7 +71,7 @@ export interface AssembleData {
   permittedFences?: MdNode[];
   evalNodes: MdNode[];
   kinds: Kind[];
-  kindFences?: { [kind: string]: MdNode[] };
+  kindFences?: { [kind in Kind]?: MdNode[] };
   blockScope?: boolean;
   evaluated?: { evalResult?: unknown }[] | false;
   outputed?: unknown;
@@ -115,5 +91,8 @@ export interface MatchLineChar {
 declare global {
   interface ArrayConstructor {
     isArray<T>(arg: T): arg is [Extract<T, readonly unknown[]>] extends [never] ? T & any[] : Extract<T, readonly unknown[]>;
+  }
+  interface ObjectConstructor {
+    keys<T>(o: T): (keyof T)[];
   }
 }

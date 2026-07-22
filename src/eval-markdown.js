@@ -167,7 +167,7 @@ async function assemble(
     logger.info('eval prevented');
     data.evaluated = false;
   } else {
-    data.evaluated = /** @type {AssembleData['evaluated']} */ (await evaluateAllKinds(data, pkg, prepend, nonstop, filePath, logger, sloppy));
+    data.evaluated = await evaluateAllKinds(data, pkg, prepend, nonstop, filePath, logger, sloppy);
   }
 
   if (output && data.evalNodes && data.markdownLines) {
@@ -238,7 +238,7 @@ function main(
     // console.log(mdResults)
       const exitCode = getExitCode(mdResults);
       if (exitCode === 0) { logger.info('ok'); }
-      logger.debug('exit code', exitCode);
+      logger.debug('exit code', String(exitCode));
       return {
         dataSets: mdResults,
         exitCode,
@@ -248,7 +248,7 @@ function main(
     .catch((error) => {
       logger.err(error);
       const exitCode = 1;
-      logger.debug('exit code', exitCode);
+      logger.debug('exit code', String(exitCode));
       return {
         dataSets: null,
         exitCode: 1,

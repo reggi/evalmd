@@ -2,36 +2,39 @@
 
 const { styleText, stripVTControlCharacters } = require('util');
 
-/** @param {...any} args */
+/** @param {string[]} args */
 function errMsg(...args) {
   const parts = args.slice();
   if (parts.length > 1) {
     parts[0] = styleText('magenta', String(parts[0]));
   }
-  return [
+  return /** @type {string[]} */ ([]).concat(
     styleText('white', 'evalmd'),
     styleText('red', 'ERR!'),
-  ].concat(parts).join(' ');
+    parts,
+  ).join(' ');
 }
 
-/** @param {...any} args */
+/** @param {string[]} args */
 function infoMsg(...args) {
   const parts = args.slice();
   parts[0] = styleText('magenta', String(parts[0]));
-  return [
+  return /** @type {string[]} */ ([]).concat(
     styleText('white', 'evalmd'),
     styleText('green', 'info'),
-  ].concat(parts).join(' ');
+    parts,
+  ).join(' ');
 }
 
-/** @param {...any} args */
+/** @param {string[]} args */
 function debugMsg(...args) {
   const parts = args.slice();
   parts[0] = styleText('magenta', String(parts[0]));
-  return [
+  return /** @type {string[]} */ ([]).concat(
     styleText('white', 'evalmd'),
     styleText('blue', 'debug'),
-  ].concat(parts).join(' ');
+    parts,
+  ).join(' ');
 }
 
 /** @param {unknown} errOrStack */
@@ -53,8 +56,8 @@ function cleanStack(errOrStack) {
  */
 function createLogger(options) {
   const opts = options || {};
-  const debug = Boolean(opts.debug);
-  const silence = Boolean(opts.silence);
+  const debug = !!opts.debug;
+  const silence = !!opts.silence;
   /** @type {string[] & { all?: string[] }} */
   const store = opts.store || [];
 
@@ -64,25 +67,25 @@ function createLogger(options) {
     if (!store.all) {
       store.all = [];
     }
-    store.push(colorLessData);
+    store[store.length] = colorLessData;
     if (!silence) {
       return process.stderr.write(`${data}\n`);
     }
-    return undefined;
+    return void undefined;
   }
 
   return {
     store,
-    /** @param {...any} args */
+    /** @param {string[]} args */
     info(...args) {
       return write(infoMsg(...args));
     },
-    /** @param {...any} args */
+    /** @param {string[]} args */
     debug(...args) {
       if (debug) {
         return write(debugMsg(...args));
       }
-      return undefined;
+      return void undefined;
     },
     /** @param {unknown} err */
     err(err) {

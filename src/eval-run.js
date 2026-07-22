@@ -312,9 +312,9 @@ function evaluateShell(nodes, filePath, nonstop, logger) {
  * @param {boolean} nonstop
  * @param {Logger} logger
  */
-function evaluateKind(kind, nodes, filePath, nonstop, logger) {
+async function evaluateKind(kind, nodes, filePath, nonstop, logger) {
   if (kind === 'sh') { return evaluateShell(nodes, filePath, nonstop, logger); }
-  return Promise.resolve([]);
+  return [];
 }
 
 /**
@@ -326,29 +326,57 @@ function evaluateKind(kind, nodes, filePath, nonstop, logger) {
  * @param {Logger} logger
  * @param {boolean} sloppy
  */
-function evaluateAllKinds(data, pkg, prepend, nonstop, filePath, logger, sloppy) {
-  /** @type {(() => unknown)[]} */
+async function evaluateAllKinds(
+  data,
+  pkg,
+  prepend,
+  nonstop,
+  filePath,
+  logger,
+  sloppy,
+) {
+  /** @typedef {Awaited<ReturnType<typeof evaluateScope> | ReturnType<typeof evaluateKind>>} RunnerResults */
+  /** @typedef {RunnerResults[number]} RunnerResult */
+  /** @type {(() => Promise<RunnerResults>)[]} */
   const runners = [];
   const evalNodes = data.evalNodes || [];
   const markdownLinesLength = (data.markdownLines || []).length;
-  const kindFences = data.kindFences || {};
-  if (evalNodes.length) {
-    runners.push(() => evaluateScope(evalNodes, markdownLinesLength, pkg, prepend, nonstop, filePath, Boolean(data.blockScope), logger, sloppy));
+  if (evalNodes.length >= 0) {
+    runners[runners.length] = () => evaluateScope(
+      evalNodes,
+      markdownLinesLength,
+      pkg,
+      prepend,
+      nonstop,
+      filePath,
+      !!data.blockScope,
+      logger,
+      sloppy,
+    );
   }
-  Object.keys(kindFences).forEach((kind) => {
-    if (kindFences[kind].length) {
-      runners.push(() => evaluateKind(kind, kindFences[kind], filePath, nonstop, logger));
-    }
-  });
+  if (data.kindFences) {
+    const { kindFences } = data;
+    Object.keys(kindFences).forEach((kind) => {
+      const fences = kindFences[kind];
+      if (fences?.length) {
+        runners[runners.length] = () => evaluateKind(
+          kind,
+          fences,
+          filePath,
+          nonstop,
+          logger,
+        );
+      }
+    });
+  }
   if (!runners.length) {
     logger.info('no blocks to eval');
-    return Promise.resolve(false);
+    return false;
   }
-  /** @type {unknown[]} */
-  let results = [];
-  return runners.reduce((chain, runner) => chain.then(() => Promise.resolve(runner()).then((nodes) => {
-    results = results.concat(nodes);
-  })), Promise.resolve()).then(() => results);
+  return runners.reduce(async (prev, runner) => {
+    const [results, nodes] = await Promise.all([prev, runner()]);
+    return /** @type {RunnerResult[]} */ ([]).concat(results, nodes);
+  }, Promise.resolve(/** @type {RunnerResult[]} */ ([])));
 }
 
 module.exports = {
