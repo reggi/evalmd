@@ -93,8 +93,8 @@ export interface AssembleData {
   allFences?: MdNode[];
   allJsFences?: MdNode[];
   permittedFences?: MdNode[];
-  evalNodes?: MdNode[];
-  kinds?: Kind[];
+  evalNodes: MdNode[];
+  kinds: Kind[];
   kindFences?: { [kind: string]: MdNode[] };
   blockScope?: boolean;
   evaluated?: { evalResult?: unknown }[] | false;

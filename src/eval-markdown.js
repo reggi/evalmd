@@ -3,7 +3,6 @@
 const flat = require('array.prototype.flat');
 const { readFile } = require('fs/promises');
 const MarkdownIt = require('markdown-it');
-const promiseRipple = require('./promise-ripple');
 const resolveParse = require('./eslint-parse');
 const createLogger = require('./log');
 const {
@@ -73,7 +72,10 @@ function getExitCode(mdResults) {
   return 0;
 }
 
-/** @param {string} [packagePath] */
+/**
+ * @param {string} [packagePath]
+ * @returns {Promise<Package>}
+ */
 function getPackage(packagePath) {
   packagePath ||= './package.json';
   return readFile(packagePath, 'utf8')
@@ -103,7 +105,7 @@ function getPackage(packagePath) {
  * @param {boolean} sloppy
  * @returns {Promise<AssembleData>}
  */
-function assemble(
+async function assemble(
   filePath,
   pkg,
   prepend,
@@ -118,71 +120,73 @@ function assemble(
   logger,
   sloppy,
 ) {
-  // get the markdown file contents
-  /** @type {AssembleData} */
-  const initial = {};
-  return promiseRipple(initial, {
-    markdown() {
-      return readFile(filePath, 'utf8');
-    },
-    /** @param {AssembleData} data */
-    processNodes(data) {
-      // create new md instance
-      const md = new MarkdownIt();
-      // split the markdown file by lines
-      data.markdownLines = String(data.markdown || '').split(/\r\n?|\n/);
-      // get all the nodes
-      data.nodes = md.parse(String(data.markdown || ''), {});
-      // map all the nodes
-      data.nodes = mapNodes(data.nodes);
-      // get all js / javascript fenced blocks
-      data.allFences = getFences(data.nodes, ['js', 'javascript']);
-      // get all hashes
-      data.allJsFences = getNodeId(data.allFences);
-      // get all permitted blocks
-      data.permittedFences = filterPrevented(data.allJsFences);
-      // eval nodes
-      data.kinds = normalizeKinds(evalLangs);
-      const evalJs = data.kinds.indexOf('js') !== -1;
-      data.evalNodes = evalJs ? (includePrevented ? data.allJsFences : data.permittedFences) : [];
-      /** @type {{ [kind in Kind]?: MdNode[]; }} */
-      const kindFences = {};
-      const kindNodes = data.nodes || [];
-      data.kinds.forEach((kind) => {
-        if (kind === 'js') { return; }
-        kindFences[kind] = getNodeId(getFences(kindNodes, KIND_LANGS[kind] || [kind]));
-      });
-      data.kindFences = kindFences;
-      // get the blockscope
-      data.blockScope = blockScope
-        || Boolean(data.evalNodes.map((node) => node.fileEval).filter((fileEval) => fileEval !== false).length);
-      return data;
-    },
-    /** @param {AssembleData} data */
-    resolvedParsers(data) {
-      if (!useEslint) { return false; }
-      return Promise.all((data.evalNodes || []).map((node) => resolveParse(filePath, String(node.id), process.cwd()).then((parse) => {
-        node.parse = parse;
-        return node.id;
-      })));
-    },
-    /** @param {AssembleData} data */
-    evaluated(data) {
-      if (preventEval) {
-        logger.info('eval prevented');
-        return false;
-      }
-      return evaluateAllKinds(data, pkg, prepend, nonstop, filePath, logger, sloppy);
-    },
-    /** @param {AssembleData} data */
-    outputed(data) {
-      if (!output) {
-        return false;
-      }
-      if (!data.evalNodes || !data.markdownLines) { return false; }
-      return outputScope(data.evalNodes, data.markdownLines.length, pkg, prepend, nonstop, filePath, Boolean(data.blockScope), output, delimeter, logger, sloppy);
-    },
+  const markdown = await readFile(filePath, 'utf8');
+  const md = new MarkdownIt();
+
+  const nodes = mapNodes(md.parse(String(markdown || ''), {}));
+  const allFences = getFences(nodes, ['js', 'javascript']);
+  const allJsFences = getNodeId(allFences);
+  const permittedFences = filterPrevented(allJsFences);
+  const kinds = normalizeKinds(evalLangs);
+  const evalJs = kinds.indexOf('js') !== -1;
+  const evalNodes = evalJs ? (includePrevented ? allJsFences : permittedFences) : [];
+
+  /** @type {{ [kind in Kind]?: MdNode[]; }} */
+  const kindFences = {};
+  const kindNodes = nodes || [];
+  kinds.forEach((kind) => {
+    if (kind === 'js') { return; }
+    kindFences[kind] = getNodeId(getFences(kindNodes, KIND_LANGS[kind] || [kind]));
   });
+
+  /** @type {AssembleData} */
+  const data = {
+    markdown,
+    markdownLines: String(markdown || '').split(/\r\n?|\n/),
+    nodes,
+    allFences,
+    allJsFences,
+    permittedFences,
+    kinds,
+    evalNodes,
+    kindFences,
+    blockScope: blockScope || evalNodes
+      .map((node) => node.fileEval)
+      .filter((fileEval) => fileEval !== false).length > 0,
+    evaluated: false,
+  };
+
+  if (useEslint) {
+    await Promise.all((data.evalNodes || []).map((node) => resolveParse(filePath, String(node.id), process.cwd()).then((parse) => {
+      node.parse = parse;
+      return node.id;
+    })));
+  }
+
+  if (preventEval) {
+    logger.info('eval prevented');
+    data.evaluated = false;
+  } else {
+    data.evaluated = /** @type {AssembleData['evaluated']} */ (await evaluateAllKinds(data, pkg, prepend, nonstop, filePath, logger, sloppy));
+  }
+
+  if (output && data.evalNodes && data.markdownLines) {
+    await outputScope(
+      data.evalNodes,
+      data.markdownLines.length,
+      pkg,
+      prepend,
+      nonstop,
+      filePath,
+      !!data.blockScope,
+      output,
+      delimeter,
+      logger,
+      sloppy,
+    );
+  }
+
+  return data;
 }
 
 /**

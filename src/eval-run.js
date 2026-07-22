@@ -11,7 +11,6 @@ const {
   writeFile,
   unlink,
 } = require('fs/promises');
-const promiseRipple = require('./promise-ripple');
 const promiseSeries = require('./promise-series');
 const {
   stackSplit,
@@ -103,7 +102,7 @@ function nonstopErr(error, stackWrapper, nonstop, logger) {
  * @param {boolean} sloppy
  * @returns {Promise<T>}
  */
-function evaluate(
+async function evaluate(
   node,
   nodes,
   markdownLinesLength,
@@ -114,54 +113,46 @@ function evaluate(
   logger,
   sloppy,
 ) {
-  return promiseRipple(node, {
-    notice(node) {
-      const ids = Array.isArray(node) ? node.map((n) => n.id) : [node.id];
-      const word = ids.length > 1 ? 'blocks' : 'block';
-      logger.info(filePath, [
-        'running',
-        word,
-        ids.join(', '),
-      ].join(' '));
-    },
-    evalCode(node) {
-      const parse = (Array.isArray(node) ? (node[0] && node[0].parse) : node.parse) || false;
-      const stackWrapper = acornError(nodes, filePath);
-      try {
-        return buildEvalable(node, nodes, markdownLinesLength, pkg, prepend, { parse, sloppy });
-      } catch (error) {
-        return nonstopErr(error, stackWrapper, nonstop, logger);
-      }
-    },
-    fileName(node) {
-      const fileEvalHash = typeof node.fileEval === 'string' ? getHash(node.fileEval) : getHash(filePath + node.id);
-      assign(node, {
-        fileEvalHash,
-        fileEvalHashPath: path.join(temp, `${fileEvalHash}.js`),
-      });
-      return node;
-    },
-    fileCreated({ evalCode, fileEvalHashPath }) {
-      if (!evalCode || evalCode instanceof Error || !fileEvalHashPath) {
-        return false;
-      }
+  const ids = Array.isArray(node) ? node.map((n) => n.id) : [node.id];
+  logger.info(filePath, [
+    'running',
+    ids.length > 1 ? 'blocks' : 'block',
+    ids.join(', '),
+  ].join(' '));
 
-      const dirs = path.dirname(fileEvalHashPath);
-      return mkdir(dirs, { recursive: true })
-        .then(() => writeFile(fileEvalHashPath, evalCode.preserveAlter)
-          .then(() => true));
-    },
-    evalResult(node) {
-      if (!node.fileCreated || !node.fileEvalHashPath) { return false; }
-      const stackWrapper = evalError(filePath, nodes);
-      return evalFileAsync(node.fileEvalHashPath)
-        .catch((error) => nonstopErr(error, stackWrapper, nonstop, logger));
-    },
-    fileRemove(node) {
-      if (!node.fileCreated || !node.fileEvalHashPath) { return false; }
-      return unlink(node.fileEvalHashPath);
-    },
+  const parse = (Array.isArray(node) ? (node[0] && node[0].parse) : node.parse) || false;
+  const buildStackWrapper = acornError(nodes, filePath);
+  try {
+    node.evalCode = buildEvalable(node, nodes, markdownLinesLength, pkg, prepend, { parse, sloppy });
+  } catch (error) {
+    node.evalCode = /** @type {Error} */ (nonstopErr(error, buildStackWrapper, nonstop, logger));
+  }
+
+  const fileEvalHash = typeof node.fileEval === 'string' ? getHash(node.fileEval) : getHash(filePath + node.id);
+  assign(node, {
+    fileEvalHash,
+    fileEvalHashPath: path.join(temp, `${fileEvalHash}.js`),
   });
+
+  const { evalCode, fileEvalHashPath } = node;
+  if (evalCode && !(evalCode instanceof Error) && fileEvalHashPath) {
+    await mkdir(path.dirname(fileEvalHashPath), { recursive: true });
+    await writeFile(fileEvalHashPath, evalCode.preserveAlter);
+    node.fileCreated = true;
+  } else {
+    node.fileCreated = false;
+  }
+
+  if (node.fileCreated && node.fileEvalHashPath) {
+    const evalStackWrapper = evalError(filePath, nodes);
+    node.evalResult = await evalFileAsync(node.fileEvalHashPath)
+      .catch((error) => nonstopErr(error, evalStackWrapper, nonstop, logger));
+    await unlink(node.fileEvalHashPath);
+  } else {
+    node.evalResult = false;
+  }
+
+  return node;
 }
 
 /**
@@ -209,7 +200,7 @@ function evaluateScope(
  * @param {boolean} sloppy
  * @returns {Promise<T>}
  */
-function outputCode(
+async function outputCode(
   node,
   nodes,
   markdownLinesLength,
@@ -222,36 +213,34 @@ function outputCode(
   logger,
   sloppy,
 ) {
-  return promiseRipple(node, {
-    notice(node) {
-      const ids = Array.isArray(node) ? node.map((n) => n.id) : [node.id];
-      const word = ids.length > 1 ? 'blocks' : 'block';
-      logger.info(filePath, [
-        'outputting', word, ids.join(', '),
-      ].join(' '));
-    },
-    evalCode(node) {
-      const parse = (Array.isArray(node) ? (node[0] && node[0].parse) : node.parse) || false;
-      const stackWrapper = acornError(nodes, filePath);
-      try {
-        return buildEvalable(node, nodes, markdownLinesLength, pkg, prepend, { parse, sloppy });
-      } catch (error) {
-        return nonstopErr(error, stackWrapper, nonstop, logger);
-      }
-    },
-    output(node) {
-      if (!node.evalCode || node.evalCode instanceof Error) { return false; }
-      if (output === true) { output = 'preserve'; }
-      if (output === 'preserve' || output === 'concat' || output === 'preserveAlter' || output === 'concatAlter') {
-        process.stdout.write(node.evalCode[output]);
-      }
-      if (delimeter === true) {
-        delimeter = '//EVALMD-STDOUT-FILE-DELIMETER';
-      }
-      if (delimeter) { process.stdout.write(delimeter); }
-      return true;
-    },
-  });
+  const ids = Array.isArray(node) ? node.map((n) => n.id) : [node.id];
+  logger.info(filePath, [
+    'outputting',
+    ids.length > 1 ? 'blocks' : 'block',
+    ids.join(', '),
+  ].join(' '));
+
+  const parse = (Array.isArray(node) ? (node[0] && node[0].parse) : node.parse) || false;
+  const stackWrapper = acornError(nodes, filePath);
+  try {
+    node.evalCode = buildEvalable(node, nodes, markdownLinesLength, pkg, prepend, { parse, sloppy });
+  } catch (error) {
+    node.evalCode = /** @type {Error} */ (nonstopErr(error, stackWrapper, nonstop, logger));
+  }
+
+  const { evalCode } = node;
+  if (evalCode && !(evalCode instanceof Error)) {
+    if (output === true) { output = 'preserve'; }
+    if (output === 'preserve' || output === 'concat' || output === 'preserveAlter' || output === 'concatAlter') {
+      process.stdout.write(evalCode[output]);
+    }
+    if (delimeter === true) {
+      delimeter = '//EVALMD-STDOUT-FILE-DELIMETER';
+    }
+    if (delimeter) { process.stdout.write(delimeter); }
+  }
+
+  return node;
 }
 
 /**
