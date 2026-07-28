@@ -30,8 +30,8 @@
     "object.entries": "^1.1.9",
     "object.groupby": "^1.0.3",
     "object.values": "^1.2.1",
-    "os-tmpdir": "^1.0.2",
-    "pargs": "^1.4.2"
+    "pargs": "^1.4.2",
+    "tmp": "^0.2.7"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.5",
@@ -45,9 +45,9 @@
     "@types/object.assign": "^4.1.0",
     "@types/object.entries": "^1.1.1",
     "@types/object.groupby": "^1.0.4",
-    "@types/os-tmpdir": "^1.0.2",
     "@types/qs": "^6.15.1",
     "@types/semver": "^6.2.7",
+    "@types/tmp": "^0.2.6",
     "@typescript-eslint/eslint-plugin": "^8.65.0",
     "@typescript-eslint/parser": "^8.65.0",
     "@typescript-eslint/types": "^8.65.0",

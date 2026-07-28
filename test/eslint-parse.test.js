@@ -2,7 +2,7 @@
 
 const path = require('path');
 const fs = require('fs');
-const osTmpDir = require('os-tmpdir');
+const tmp = require('tmp');
 const semver = require('semver');
 const test = require('tape');
 const resolveParse = require('../src/eslint-parse');
@@ -64,7 +64,7 @@ test('normalizeNodePositions leaves a node without a range untouched', (t) => {
 });
 
 test('resolveParse explains itself when eslint resolves but can not be loaded', (t) => {
-  const cwd = path.join(osTmpDir(), 'evalmd-unloadable-eslint');
+  const cwd = path.join(tmp.tmpdir, 'evalmd-unloadable-eslint');
   const eslintDir = path.join(cwd, 'node_modules', 'eslint');
   fs.mkdirSync(eslintDir, { recursive: true });
   fs.writeFileSync(path.join(eslintDir, 'package.json'), '{ "name": "eslint", "version": "10.0.0", "main": "index.js" }');

@@ -3,7 +3,7 @@
 const path = require('path');
 const childProcess = require('child_process');
 
-const osTmpDir = require('os-tmpdir');
+const tmp = require('tmp');
 const assign = require('object.assign');
 
 const {
@@ -26,7 +26,7 @@ const {
   checkPromptCommand,
 } = require('./shell-eval');
 
-const temp = path.join(osTmpDir(), 'evalmd');
+const temp = path.join(tmp.tmpdir, 'evalmd');
 
 /** @import { AssembleData, ConcatNode, Logger, MdNode, Package } from './types' */
 
