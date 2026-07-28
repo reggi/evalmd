@@ -123,7 +123,7 @@ async function assemble(
   const markdown = await readFile(filePath, 'utf8');
   const md = new MarkdownIt();
 
-  const nodes = mapNodes(md.parse(String(markdown || ''), {}));
+  const nodes = mapNodes(/** @type {readonly MdNode[]} */ (/** @type {unknown} */ (md.parse(String(markdown || ''), {}))));
   const allFences = getFences(nodes, ['js', 'javascript']);
   const allJsFences = getNodeId(allFences);
   const permittedFences = filterPrevented(allJsFences);
