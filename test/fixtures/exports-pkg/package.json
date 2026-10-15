@@ -1,0 +1,11 @@
+{
+	"name": "exports-pkg",
+	"exports": {
+		".": {
+			"import": "./esm.mjs",
+			"require": "./cjs.js"
+		},
+		"./sub": "./sub.js",
+		"./package.json": "./package.json"
+	}
+}

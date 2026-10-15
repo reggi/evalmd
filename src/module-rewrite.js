@@ -1,7 +1,9 @@
 'use strict';
 
 const path = require('path');
+const { pathToFileURL } = require('url');
 const acorn = require('acorn');
+const resolveSync = require('resolve/sync');
 const estraverse = require('estraverse');
 const isCore = require('is-core-module');
 const { buildPreserveLines, buildConcat } = require('./md-nodes');
@@ -48,9 +50,13 @@ function getDeps(code, parseOpts) {
   const ast = opts.parse ? opts.parse(code) : acorn.parse(code, { sourceType: opts.sloppy ? 'script' : 'module', ecmaVersion: 6 });
   /** @type {Dep[]} */
   const deps = [];
-  /** @param {EsNode | undefined} source */
-  function pushSource(source) {
+  /**
+   * @param {EsNode | undefined} source
+   * @param {Dep['moduleSystem']} moduleSystem
+   */
+  function pushSource(source, moduleSystem) {
     deps[deps.length] = {
+      moduleSystem,
       source: {
         value: String(source && 'value' in source ? source.value : ''),
         start: source?.start ?? 0,
@@ -63,18 +69,39 @@ function getDeps(code, parseOpts) {
     enter(node) {
       const esNode = /** @type {EsNode} */ (node);
       if (esNode.type === 'ImportDeclaration') {
-        pushSource(esNode.source);
+        pushSource(esNode.source, 'import');
       } else if (
         esNode.type === 'CallExpression'
         && esNode.callee?.type === 'Identifier'
         && esNode.callee.name === 'require'
         && esNode.arguments?.length
       ) {
-        pushSource(esNode.arguments[0]);
+        pushSource(esNode.arguments[0], 'require');
       }
     },
   });
   return deps.sort((a, b) => a.source.start - b.source.start);
+}
+
+/**
+ * @param {Dep} dep
+ * @param {string} subpath
+ * @param {Package} pkg
+ * @param {string} absModule
+ */
+function resolveAssignedModule(dep, subpath, pkg, absModule) {
+  if (typeof pkg.exports === 'undefined') {
+    return toRequirePath(subpath ? path.join(absModule, subpath) : absModule);
+  }
+  // resolve the self-reference through `exports`, as the current `node` that evaluates the block will
+  const resolved = resolveSync(dep.source.value, {
+    basedir: absModule,
+    engines: process.versions.node,
+    // @ts-expect-error `resolve`'s types omit its `moduleSystem` option
+    moduleSystem: dep.moduleSystem,
+  });
+  // an absolute path is not a valid `import` specifier on Windows
+  return dep.moduleSystem === 'import' ? pathToFileURL(resolved).href : toRequirePath(resolved);
 }
 
 /**
@@ -96,7 +123,7 @@ function alterAssignedModule(code, _prepend, pkg, parseOpts) {
       const start = chars + dep.source.start + 1;
       const end = chars + dep.source.end - 1;
       const absModule = path.dirname(path.resolve(pkg.path));
-      const replacement = toRequirePath(match[1] ? path.join(absModule, match[1]) : absModule);
+      const replacement = resolveAssignedModule(dep, match[1], pkg, absModule);
       code = replacePosition(code, start, end, replacement);
       chars += replacement.length - dep.source.value.length;
     }
@@ -165,7 +192,7 @@ function alterNpmModules(code, _nodes, prepend, parseOpts) {
   const deps = getDeps(code, parseOpts);
   if (!deps.length) { return code; }
   prepend ||= './';
-  const nonNpm = /^.\.\/|^.\/|^\//;
+  const nonNpm = /^.\.\/|^.\/|^\/|^file:/;
   let chars = 0;
   deps.forEach((dep) => {
     if (dep.source.value && !dep.source.value.match(nonNpm) && !isCore(dep.source.value) && !path.isAbsolute(dep.source.value)) {

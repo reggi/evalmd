@@ -1,6 +1,7 @@
 'use strict';
 
 const path = require('path');
+const url = require('url');
 const test = require('tape');
 const mr = require('../src/module-rewrite');
 
@@ -68,6 +69,38 @@ test('alterAssignedModule rewrites the package self-reference to a filesystem pa
   t.equal(mr.alterAssignedModule("require('mypkg/sub')", '', pkg), `require('${mr.toRequirePath(path.join(abs, '/sub'))}')`, 'the self-name becomes an absolute path');
   t.equal(mr.alterAssignedModule("require('x')", '', false), "require('x')", 'no package leaves the code untouched');
   t.equal(mr.alterAssignedModule('var x = 1;', '', pkg), 'var x = 1;', 'code with no deps is untouched');
+  t.end();
+});
+
+test('alterAssignedModule resolves the package self-reference through its exports', (t) => {
+  const pkgPath = path.resolve('test/fixtures/exports-pkg/package.json');
+  const pkg = { name: 'exports-pkg', path: pkgPath, exports: {} };
+  const dir = path.dirname(pkgPath);
+  t.equal(
+    mr.alterAssignedModule("import x from 'exports-pkg';", '', pkg),
+    `import x from '${url.pathToFileURL(path.join(dir, 'esm.mjs')).href}';`,
+    'an import uses the import condition, as a file URL',
+  );
+  t.equal(
+    mr.alterAssignedModule("require('exports-pkg')", '', pkg),
+    `require('${mr.toRequirePath(path.join(dir, 'cjs.js'))}')`,
+    'a require uses the require condition',
+  );
+  t.equal(
+    mr.alterAssignedModule("require('exports-pkg/sub')", '', pkg),
+    `require('${mr.toRequirePath(path.join(dir, 'sub.js'))}')`,
+    'an exported subpath resolves to its target',
+  );
+  t.throws(
+    () => mr.alterAssignedModule("require('exports-pkg/nope')", '', pkg),
+    (e) => e.code === 'ERR_PACKAGE_PATH_NOT_EXPORTED',
+    'an unexported subpath throws',
+  );
+  t.end();
+});
+
+test('alterNpmModules leaves a file URL alone', (t) => {
+  t.equal(mr.alterNpmModules("import x from 'file:///proj/x.mjs';", [], '/proj'), "import x from 'file:///proj/x.mjs';", 'a file URL is not an npm specifier');
   t.end();
 });
 

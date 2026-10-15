@@ -31,6 +31,7 @@
     "object.groupby": "^1.0.3",
     "object.values": "^1.2.1",
     "pargs": "^1.4.2",
+    "resolve": "^2.0.0-next.7",
     "tmp": "^0.2.7"
   },
   "devDependencies": {

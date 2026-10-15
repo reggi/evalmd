@@ -78,6 +78,16 @@ test('main evaluates a self-contained block at block scope, unsilenced, with deb
   });
 });
 
+test('main resolves the package self-reference through its exports', (t) => {
+  run(['./test-readmes/exports.md'], {
+    package: './test/fixtures/exports-pkg/package.json',
+    blockScope: true,
+  }).then((report) => {
+    t.equal(report.exitCode, 0, 'import and require each get their own exports target');
+    t.end();
+  });
+});
+
 test('main concatenates state-sharing blocks at the default scope', (t) => {
   run(['./test-readmes/fence-spaces.md']).then((report) => {
     t.equal(report.exitCode, 0, 'blocks sharing variables evaluate together');

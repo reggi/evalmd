@@ -17,9 +17,11 @@ export interface EvalBuild {
 export interface Package {
   name: string;
   path: string;
+  exports?: unknown;
 }
 
 export interface Dep {
+  moduleSystem: 'import' | 'require';
   source: {
     value: string;
     start: number;

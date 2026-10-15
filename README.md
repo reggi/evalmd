@@ -143,6 +143,9 @@ var evalmd = require('evalmd')
 assert.equal(typeof evalmd, 'function')
 ```
 
+When the package has an `exports` field, its name (and any subpath, like `evalmd/foo`) resolves through `exports` just as `node` would resolve a self-reference, using the `import` conditions for an `import` declaration and the `require` conditions for a `require()` call.
+An `import` is rewritten to a `file:` URL, and an unexported subpath is an error.
+
 ## Prevent Eval Declaration
 
 The `preventEval` declaration allows you to prevent a code block from being evaluated.  There are two different ways of declaring a code block. One is to use an `anchor`. Here's an example:
