@@ -1,7 +1,9 @@
 'use strict';
 
+const childProcess = require('child_process');
 const path = require('path');
 const url = require('url');
+const acorn = require('acorn');
 const test = require('tape');
 const mr = require('../src/module-rewrite');
 
@@ -132,6 +134,39 @@ test('the alter functions handle exact names, absolutes, and default prepends', 
   t.equal(mr.alterNpmModules("require('/abs/mod')", [], '/proj'), "require('/abs/mod')", 'an absolute require is left alone');
   t.match(mr.alterNpmModules("require('lodash')", [], ''), /node_modules\/lodash/, 'an empty prepend defaults to the cwd for npm modules');
   t.match(mr.alterPrependModules("require('./x')", [], ''), /\/x'\)$/, 'an empty prepend defaults to the cwd for locals');
+  t.end();
+});
+
+const parseLatest = (code) => acorn.parse(code, { sourceType: 'module', ecmaVersion: 'latest' });
+const runModule = (code) => childProcess.spawnSync(process.execPath, ['--input-type=module', '-e', code], { encoding: 'utf8' });
+
+test('alterExpectedThrows expects a `// throws` statement to throw', (t) => {
+  const passing = "JSON.parse('{'); // throws\nvar after = 1;";
+  const altered = mr.alterExpectedThrows(passing);
+  t.notEqual(altered, passing, 'the statement is rewritten');
+  t.equal(altered.split('\n').length, passing.split('\n').length, 'no lines are added');
+  t.equal(runModule(altered).status, 0, 'a statement that throws passes');
+
+  const failing = runModule(mr.alterExpectedThrows('JSON.parse(\'{}\'); // Throws (no, it does not)'));
+  t.notEqual(failing.status, 0, 'a statement that does not throw fails');
+  t.match(failing.stderr, /expected `JSON\.parse\('\{\}'\);` to throw/, 'the failure names the statement');
+
+  const untouched = "JSON.parse('{}'); // returns an object\nJSON.parse('{}');\n// throws\nvar x = 1; // throws";
+  t.equal(mr.alterExpectedThrows(untouched), untouched, 'other comments, a comment on its own line, and declarations are left alone');
+  t.ok(mr.alterExpectedThrows('f(); g(); // throws').startsWith('f(); { '), 'an earlier statement on the same line is left alone');
+  t.equal(mr.alterExpectedThrows('f(); // throws', { parse: () => ({ type: 'X' }) }), 'f(); // throws', 'a parse result with no body is left alone');
+  t.end();
+});
+
+test('alterExpectedThrows awaits a `// throws` statement with a top-level await', (t) => {
+  const rejects = 'async function reject() { throw new Error(); }\nawait reject(); // throws';
+  const resolves = 'async function resolve() {}\nawait resolve(); // throws';
+  const nested = 'async function reject() { throw new Error(); }\n[async () => { await reject(); }].forEach((f) => f()); // throws';
+  t.ok(mr.alterExpectedThrows(nested, { parse: parseLatest }).indexOf('await (async') === -1, 'an await inside a nested function is not top-level');
+  t.equal(runModule(mr.alterExpectedThrows(rejects, { parse: parseLatest })).status, 0, 'a rejection passes');
+  const resolved = runModule(mr.alterExpectedThrows(resolves, { parse: parseLatest }));
+  t.notEqual(resolved.status, 0, 'a resolution fails');
+  t.match(resolved.stderr, /expected `await resolve\(\);` to throw/, 'the failure names the statement');
   t.end();
 });
 

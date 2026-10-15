@@ -11,6 +11,7 @@ const { buildPreserveLines, buildConcat } = require('./md-nodes');
 /**
  * @import {
  *  Dep,
+ *  EsExpressionStatement,
  *  EsNode,
  *  EvalBuild,
  *  MdNode,
@@ -43,11 +44,19 @@ function regExpEscape(s) {
 /**
  * @param {string} code
  * @param {ParseOptions} [parseOpts]
+ */
+function parseCode(code, parseOpts) {
+  const opts = parseOpts || {};
+  return opts.parse ? opts.parse(code) : acorn.parse(code, { sourceType: opts.sloppy ? 'script' : 'module', ecmaVersion: 6 });
+}
+
+/**
+ * @param {string} code
+ * @param {ParseOptions} [parseOpts]
  * @returns {readonly Dep[]}
  */
 function getDeps(code, parseOpts) {
-  const opts = parseOpts || {};
-  const ast = opts.parse ? opts.parse(code) : acorn.parse(code, { sourceType: opts.sloppy ? 'script' : 'module', ecmaVersion: 6 });
+  const ast = parseCode(code, parseOpts);
   /** @type {Dep[]} */
   const deps = [];
   /**
@@ -206,6 +215,61 @@ function alterNpmModules(code, _nodes, prepend, parseOpts) {
   return code;
 }
 
+const throwsComment = /^[ \t]*\/\/[ \t]*throws\b/i;
+
+const functionTypes = [
+  'FunctionDeclaration',
+  'FunctionExpression',
+  'ArrowFunctionExpression',
+];
+
+/** @param {EsNode} node */
+function hasTopLevelAwait(node) {
+  let found = false;
+  estraverse.traverse(/** @type {Node} */ (node), {
+    fallback: 'iteration',
+    enter(child) {
+      if (functionTypes.indexOf(child.type) !== -1) {
+        return estraverse.VisitorOption.Skip;
+      }
+      if (child.type === 'AwaitExpression') {
+        found = true;
+        return estraverse.VisitorOption.Break;
+      }
+      return undefined;
+    },
+  });
+  return found;
+}
+
+/**
+ * @param {string} code
+ * @param {ParseOptions} [parseOpts]
+ */
+function alterExpectedThrows(code, parseOpts) {
+  /** @type {(statement: EsNode) => statement is EsExpressionStatement} */
+  const isExpectedThrow = (statement) => {
+    if (statement.type !== 'ExpressionStatement') { return false; }
+    const end = statement.end ?? 0;
+    const lineEnd = code.indexOf('\n', end);
+    return throwsComment.test(code.slice(end, lineEnd === -1 ? code.length : lineEnd));
+  };
+  const ast = parseCode(code, parseOpts);
+  const statements = /** @type {EsNode[]} */ ('body' in ast ? ast.body : []).filter(isExpectedThrow);
+  // replacing from the end keeps the earlier statements' positions valid
+  return statements.reduceRight((altered, statement) => {
+    const start = statement.start ?? 0;
+    const end = statement.end ?? 0;
+    const source = altered.slice(start, end);
+    const message = JSON.stringify(`expected \`${source}\` to throw`);
+    // each wrapper stays on the statement's own lines, so line numbers still map to the markdown
+    const wrapper = hasTopLevelAwait(statement.expression)
+      ? `await (async () => { ${source} })().then(() => { throw new Error(${message}); }, () => {});`
+      : `{ let threw = false; try { ${source} } catch { threw = true; } if (!threw) { throw new Error(${message}); } }`;
+    return replacePosition(altered, start, end, wrapper);
+  }, code);
+}
+
 /**
  * @param {string} code
  * @param {readonly MdNode[]} nodes
@@ -222,6 +286,7 @@ function alterModules(code, nodes, pkg, prepend, parseOpts) {
   code = alterSelfModules(code, nodes, parseOpts);
   code = alterPrependModules(code, nodes, prepend, parseOpts);
   code = alterNpmModules(code, nodes, prepend, parseOpts);
+  code = alterExpectedThrows(code, parseOpts);
   return code;
 }
 
@@ -257,6 +322,7 @@ module.exports = {
   alterSelfModules,
   alterPrependModules,
   alterNpmModules,
+  alterExpectedThrows,
   alterModules,
   buildEvalable,
 };

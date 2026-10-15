@@ -7,6 +7,8 @@ export type EsNode = TSESTree.Node & {
   end?: number;
 };
 
+export type EsExpressionStatement = EsNode & TSESTree.ExpressionStatement;
+
 export interface EvalBuild {
   preserve: string;
   concat: string;

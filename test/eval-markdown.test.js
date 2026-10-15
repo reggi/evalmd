@@ -88,6 +88,16 @@ test('main resolves the package self-reference through its exports', (t) => {
   });
 });
 
+test('main expects a `// throws` statement to throw', (t) => {
+  run(['./test-readmes/throws.md']).then((passing) => {
+    t.equal(passing.exitCode, 0, 'a statement that throws passes');
+    return run(['./test-readmes/throws-fail.md']);
+  }).then((failing) => {
+    t.equal(failing.exitCode, 1, 'a statement that does not throw fails');
+    t.end();
+  });
+});
+
 test('main concatenates state-sharing blocks at the default scope', (t) => {
   run(['./test-readmes/fence-spaces.md']).then((report) => {
     t.equal(report.exitCode, 0, 'blocks sharing variables evaluate together');

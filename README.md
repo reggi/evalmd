@@ -89,6 +89,15 @@ Multiple prompts per block are supported.
     b
     ```
 
+## Expected throws
+
+A top-level expression statement whose line ends with a `// throws` comment (case-insensitive, and the comment may continue, as in `// throws (it is not valid JSON)`) must throw, and `evalmd` fails if it does not.
+If the statement has a top-level `await`, it must reject instead.
+
+    ```js
+    JSON.parse('{'); // throws
+    ```
+
 ## Sloppy mode
 
 Blocks are evaluated in strict mode by default. Pass `--sloppy` to evaluate in sloppy (non-strict) mode instead - for example, to use `with`.
